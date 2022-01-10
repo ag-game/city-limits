@@ -23,9 +23,11 @@ const (
 	StructurePoliceStation
 )
 
+const startingZoom = 0.5
+
 var World = &GameWorld{
-	CamScale:       1,
-	CamScaleTarget: 1,
+	CamScale:       startingZoom,
+	CamScaleTarget: startingZoom,
 	CamMoving:      true,
 	PlayerWidth:    8,
 	PlayerHeight:   32,
@@ -69,6 +71,7 @@ type GameWorld struct {
 	HoverStructure         int
 	HoverX, HoverY         int
 	HoverLastX, HoverLastY int
+	HoverValid             bool
 
 	Map             *tiled.Map
 	ObjectGroups    []*tiled.ObjectGroup
@@ -83,7 +86,8 @@ type GameWorld struct {
 
 	BrokenPieceA, BrokenPieceB gohan.Entity
 
-	TileImages map[uint32]*ebiten.Image
+	TileImages         map[uint32]*ebiten.Image
+	TileImagesFirstGID uint32
 
 	ResetGame bool
 
@@ -116,9 +120,7 @@ func Reset() {
 	World.MessageVisible = false
 }
 
-func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Structure, error) {
-	World.Level.ClearHoverSprites()
-
+func LoadMap(structureType int) (*tiled.Map, error) {
 	loader := tiled.Loader{
 		FileSystem: asset.FS,
 	}
@@ -139,33 +141,56 @@ func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Str
 		log.Fatalf("error parsing world: %+v", err)
 	}
 
-	if placeX-m.Width < 0 || placeY-m.Height < 0 || placeX > 256 || placeY > 256 {
-		return nil, errors.New("invalid location: building does not fit")
+	return m, err
+}
+
+func LoadTileset() error {
+	m, err := LoadMap(StructureHouse1)
+	if err != nil {
+		return err
 	}
 
 	// Load tileset.
 
-	tileset := m.Tilesets[0]
-	if len(World.tilesets) == 0 {
-		imgPath := filepath.Join("./image/tileset/", tileset.Image.Source)
-		f, err := asset.FS.Open(filepath.FromSlash(imgPath))
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-
-		img, _, err := image.Decode(f)
-		if err != nil {
-			panic(err)
-		}
-		World.tilesets = append(World.tilesets, ebiten.NewImageFromImage(img))
+	if len(World.tilesets) != 0 {
+		return nil // Already loaded.
 	}
+
+	tileset := m.Tilesets[0]
+	imgPath := filepath.Join("./image/tileset/", tileset.Image.Source)
+	f, err := asset.FS.Open(filepath.FromSlash(imgPath))
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	img, _, err := image.Decode(f)
+	if err != nil {
+		panic(err)
+	}
+	World.tilesets = append(World.tilesets, ebiten.NewImageFromImage(img))
 
 	// Load tiles.
 
 	for i := uint32(0); i < uint32(tileset.TileCount); i++ {
 		rect := tileset.GetTileRect(i)
 		World.TileImages[i+tileset.FirstGID] = World.tilesets[0].SubImage(rect).(*ebiten.Image)
+	}
+
+	World.TileImagesFirstGID = tileset.FirstGID
+	return nil
+}
+
+func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Structure, error) {
+	World.Level.ClearHoverSprites()
+
+	m, err := LoadMap(structureType)
+	if err != nil {
+		return nil, err
+	}
+
+	if placeX-m.Width < 0 || placeY-m.Height < 0 || placeX > 256 || placeY > 256 {
+		return nil, errors.New("invalid location: building does not fit")
 	}
 
 	createTileEntity := func(t *tiled.LayerTile, x float64, y float64) gohan.Entity {
@@ -195,6 +220,32 @@ func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Str
 
 	// TODO Add entity
 
+	if hover {
+		World.HoverValid = true
+		for y := 0; y < m.Height; y++ {
+			for x := 0; x < m.Width; x++ {
+				tx, ty := (x+placeX)-m.Width, (y+placeY)-m.Height
+				if World.Level.Tiles[1][tx][ty].Sprite != nil {
+					World.HoverValid = false
+					break // TODO
+				}
+			}
+		}
+	}
+
+	for y := 0; y < m.Height; y++ {
+		for x := 0; x < m.Width; x++ {
+			tx, ty := (x+placeX)-m.Width, (y+placeY)-m.Height
+			if hover {
+				World.Level.Tiles[0][tx][ty].HoverSprite = World.TileImages[World.TileImagesFirstGID]
+			} else {
+				World.Level.Tiles[0][tx][ty].Sprite = World.TileImages[World.TileImagesFirstGID]
+				World.Level.Tiles[0][tx][ty].EnvironmentSprite = nil
+				World.Level.Tiles[1][tx][ty].EnvironmentSprite = nil
+			}
+		}
+	}
+
 	var t *tiled.LayerTile
 	for i, layer := range m.Layers {
 		for y := 0; y < m.Height; y++ {
@@ -209,18 +260,17 @@ func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Str
 					continue
 				}
 
-				for i > len(World.Level.Tiles)-1 {
+				layerNum := i + 1
+
+				for layerNum > len(World.Level.Tiles)-1 {
 					World.Level.AddLayer()
 				}
 
 				tx, ty := (x+placeX)-m.Width, (y+placeY)-m.Height
-				if World.Level.Tiles[i][tx][ty] == nil {
-					World.Level.Tiles[i][tx][ty] = &Tile{}
-				}
 				if hover {
-					World.Level.Tiles[i][tx][ty].HoverSprite = World.TileImages[t.Tileset.FirstGID+t.ID]
+					World.Level.Tiles[layerNum][tx][ty].HoverSprite = World.TileImages[t.Tileset.FirstGID+t.ID]
 				} else {
-					World.Level.Tiles[i][tx][ty].Sprite = World.TileImages[t.Tileset.FirstGID+t.ID]
+					World.Level.Tiles[layerNum][tx][ty].Sprite = World.TileImages[t.Tileset.FirstGID+t.ID]
 				}
 
 				// TODO handle flipping
@@ -371,6 +421,9 @@ func IsoToScreen(x, y float64) (float64, float64) {
 }
 
 func ScreenToIso(x, y int) (float64, float64) {
+	// Offset to first above ground layer.
+	y += int(float64(32) * World.CamScale)
+
 	cx, cy := float64(World.ScreenW/2), float64(World.ScreenH/2)
 	return ((float64(x) - cx) / World.CamScale) + World.CamX, ((float64(y) - cy) / World.CamScale) + World.CamY
 }

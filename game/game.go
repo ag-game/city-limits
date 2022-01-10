@@ -80,6 +80,45 @@ func (g *game) Update() error {
 
 	if world.World.ResetGame {
 		world.Reset()
+		err := world.LoadTileset()
+		if err != nil {
+			return err
+		}
+
+		// Fill below ground layer.
+		dirtTile := uint32(9*32 + (0))
+		grassTile := uint32(11*32 + (0))
+		treeTileA := uint32(5*32 + (25))
+		treeTileB := uint32(5*32 + (27))
+		var img uint32
+		for x := range world.World.Level.Tiles[0] {
+			for y := range world.World.Level.Tiles[0][x] {
+				img = dirtTile
+				if rand.Intn(128) == 0 {
+					img = grassTile
+					world.World.Level.Tiles[0][x][y].Sprite = world.World.TileImages[img+world.World.TileImagesFirstGID]
+					for offsetX := -2 - rand.Intn(7); offsetX < 2+rand.Intn(7); offsetX++ {
+						for offsetY := -2 - rand.Intn(7); offsetY < 2+rand.Intn(7); offsetY++ {
+							if x+offsetX >= 0 && y+offsetY >= 0 && x+offsetX < 256 && y+offsetY < 256 {
+								world.World.Level.Tiles[0][x+offsetX][y+offsetY].Sprite = world.World.TileImages[img+world.World.TileImagesFirstGID]
+								if rand.Intn(2) == 0 {
+									if rand.Intn(3) == 0 {
+										world.World.Level.Tiles[1][x+offsetX][y+offsetY].EnvironmentSprite = world.World.TileImages[treeTileA+world.World.TileImagesFirstGID]
+									} else {
+										world.World.Level.Tiles[1][x+offsetX][y+offsetY].EnvironmentSprite = world.World.TileImages[treeTileB+world.World.TileImagesFirstGID]
+									}
+								}
+							}
+						}
+					}
+				} else {
+					if world.World.Level.Tiles[0][x][y].Sprite != nil {
+						continue
+					}
+					world.World.Level.Tiles[0][x][y].Sprite = world.World.TileImages[img+world.World.TileImagesFirstGID]
+				}
+			}
+		}
 
 		world.BuildStructure(world.StructureHouse1, false, 0, 0)
 
@@ -124,7 +163,7 @@ func (g *game) Update() error {
 
 // renderSprite renders a sprite on the screen.
 func (g *game) renderSprite(x float64, y float64, offsetx float64, offsety float64, angle float64, geoScale float64, colorScale float64, alpha float64, hFlip bool, vFlip bool, sprite *ebiten.Image, target *ebiten.Image) int {
-	if alpha < .01 || colorScale < .01 {
+	if alpha < .01 {
 		return 0
 	}
 
@@ -135,21 +174,20 @@ func (g *game) renderSprite(x float64, y float64, offsetx float64, offsety float
 
 	// Skip drawing tiles that are out of the screen.
 	drawX, drawY := world.IsoToScreen(xi, yi)
-	if drawX+padding < 0 || drawY+padding < 0 || drawX > float64(world.World.ScreenW) || drawY > float64(world.World.ScreenH) {
-		//log.Println("SKIP", drawX, drawY, world.World.ScreenW, world.World.ScreenH)
+	if drawX+padding < 0 || drawY+padding < 0 || drawX-padding > float64(world.World.ScreenW) || drawY-padding > float64(world.World.ScreenH) {
 		return 0
 	}
 
 	g.op.GeoM.Reset()
 
-	/*if hFlip {
-		s.op.GeoM.Scale(-1, 1)
-		s.op.GeoM.Translate(TileWidth, 0)
+	if hFlip {
+		g.op.GeoM.Scale(-1, 1)
+		g.op.GeoM.Translate(world.TileSize, 0)
 	}
 	if vFlip {
-		s.op.GeoM.Scale(1, -1)
-		s.op.GeoM.Translate(0, TileWidth)
-	}*/
+		g.op.GeoM.Scale(1, -1)
+		g.op.GeoM.Translate(0, world.TileSize)
+	}
 
 	// Move to current isometric position.
 	g.op.GeoM.Translate(xi, yi+offsety)
@@ -197,18 +235,21 @@ func (g *game) Draw(screen *ebiten.Image) {
 					continue
 				}
 				var sprite *ebiten.Image
-				alpha := 1.0
 				colorScale := 1.0
 				if tile.HoverSprite != nil {
 					sprite = tile.HoverSprite
-					alpha = 0.8
 					colorScale = 0.6
+					if !world.World.HoverValid {
+						colorScale = 0.1
+					}
 				} else if tile.Sprite != nil {
 					sprite = tile.Sprite
+				} else if tile.EnvironmentSprite != nil {
+					sprite = tile.EnvironmentSprite
 				} else {
 					continue
 				}
-				g.renderSprite(float64(x), float64(y), 0, float64(i*-80), 0, 1, colorScale, alpha, false, false, sprite, screen)
+				g.renderSprite(float64(x), float64(y), 0, float64(i*-80), 0, 1, colorScale, 1, false, false, sprite, screen)
 			}
 		}
 	}

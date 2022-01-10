@@ -21,12 +21,17 @@ type playerMoveSystem struct {
 
 	rewindTicks    int
 	nextRewindTick int
+
+	scrollDragX, scrollDragY         int
+	scrollCamStartX, scrollCamStartY float64
 }
 
 func NewPlayerMoveSystem(player gohan.Entity, m *MovementSystem) *playerMoveSystem {
 	return &playerMoveSystem{
-		player:   player,
-		movement: m,
+		player:      player,
+		movement:    m,
+		scrollDragX: -1,
+		scrollDragY: -1,
 	}
 }
 
@@ -98,6 +103,13 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 		}
 	}
 	world.World.CamScaleTarget += scrollY * (world.World.CamScaleTarget / 7)
+	const minZoom = .15
+	const maxZoom = 2
+	if world.World.CamScaleTarget < minZoom {
+		world.World.CamScaleTarget = minZoom
+	} else if world.World.CamScaleTarget > maxZoom {
+		world.World.CamScaleTarget = maxZoom
+	}
 
 	// Smooth zoom transition.
 	div := 10.0
@@ -131,6 +143,7 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 		}
 	}
 
+	const scrollEdgeSize = 5
 	x, y := ebiten.CursorPosition()
 	if !world.World.GotCursorPosition {
 		if x != 0 || y != 0 {
@@ -139,15 +152,32 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 			return nil
 		}
 	}
-	if x == 0 {
-		world.World.CamX -= camSpeed
-	} else if x == world.World.ScreenW-1 {
-		world.World.CamX += camSpeed
-	}
-	if y == 0 {
-		world.World.CamY -= camSpeed
-	} else if y == world.World.ScreenH-1 {
-		world.World.CamY += camSpeed
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonMiddle) {
+		if s.scrollDragX == -1 && s.scrollDragY == -1 {
+			ebiten.SetCursorMode(ebiten.CursorModeCaptured)
+			s.scrollDragX, s.scrollDragY = x, y
+			s.scrollCamStartX, s.scrollCamStartY = world.World.CamX, world.World.CamY
+		} else {
+			dx, dy := float64(x-s.scrollDragX)/world.World.CamScale, float64(y-s.scrollDragY)/world.World.CamScale
+			world.World.CamX, world.World.CamY = s.scrollCamStartX-dx, s.scrollCamStartY-dy
+		}
+	} else {
+		if s.scrollDragX != -1 && s.scrollDragY != -1 {
+			s.scrollDragX, s.scrollDragY = -1, -1
+			ebiten.SetCursorMode(ebiten.CursorModeVisible)
+		} else if x >= 0 && y >= 0 && x < world.World.ScreenW && y < world.World.ScreenH {
+			// Pan via screen edge.
+			if x <= scrollEdgeSize {
+				world.World.CamX -= camSpeed
+			} else if x >= world.World.ScreenW-scrollEdgeSize-1 {
+				world.World.CamX += camSpeed
+			}
+			if y <= scrollEdgeSize {
+				world.World.CamY -= camSpeed
+			} else if y >= world.World.ScreenH-scrollEdgeSize-1 {
+				world.World.CamY += camSpeed
+			}
+		}
 	}
 
 	if world.World.HoverStructure != 0 {

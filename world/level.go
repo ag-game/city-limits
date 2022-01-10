@@ -5,8 +5,9 @@ import (
 )
 
 type Tile struct {
-	Sprite      *ebiten.Image
-	HoverSprite *ebiten.Image
+	Sprite            *ebiten.Image
+	EnvironmentSprite *ebiten.Image
+	HoverSprite       *ebiten.Image
 }
 
 type GameLevel struct {
@@ -19,6 +20,10 @@ func NewLevel(size int) *GameLevel {
 	l := &GameLevel{
 		size: size,
 	}
+	const startingLayers = 2
+	for i := 0; i < startingLayers; i++ {
+		l.AddLayer()
+	}
 	return l
 }
 
@@ -26,12 +31,9 @@ func (l *GameLevel) AddLayer() {
 	tileMap := make([][]*Tile, l.size)
 	for x := 0; x < l.size; x++ {
 		tileMap[x] = make([]*Tile, l.size)
-		// TODO
-		/*for y := range tileMap[x] {
-			tileMap[x][y] = &Tile{
-				Sprite: asset.ImgWhiteSquare,
-			}
-		}*/
+		for y := 0; y < l.size; y++ {
+			tileMap[x][y] = &Tile{}
+		}
 	}
 	l.Tiles = append(l.Tiles, tileMap)
 }

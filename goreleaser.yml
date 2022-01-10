@@ -1,0 +1,31 @@
+project_name: citylimits
+
+builds:
+  -
+    id: citylimits
+#    ldflags:
+#      - -s -w -X code.rocketnine.space/tslocum/citylimits/main.Version={{.Version}}
+    goos:
+      - js
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - wasm
+archives:
+  -
+    id: citylimits
+    builds:
+      - citylimits
+    replacements:
+      386: i386
+    format_overrides:
+      - goos: js
+        format: zip
+      - goos: windows
+        format: zip
+    files:
+      - ./*.md
+      - LICENSE
+checksum:
+  name_template: 'checksums.txt'

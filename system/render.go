@@ -83,21 +83,20 @@ func (s *RenderSystem) renderSprite(x float64, y float64, offsetx float64, offse
 
 	// Skip drawing tiles that are out of the screen.
 	drawX, drawY := world.IsoToScreen(xi, yi)
-	if drawX+padding < 0 || drawY+padding < 0 || drawX > float64(world.World.ScreenW) || drawY > float64(world.World.ScreenH) {
-		//log.Println("SKIP", drawX, drawY, world.World.ScreenW, world.World.ScreenH)
+	if drawX+padding < 0 || drawY+padding < 0 || drawX-padding > float64(world.World.ScreenW) || drawY-padding > float64(world.World.ScreenH) {
 		return 0
 	}
 
 	s.op.GeoM.Reset()
 
-	/*if hFlip {
+	if hFlip {
 		s.op.GeoM.Scale(-1, 1)
 		s.op.GeoM.Translate(TileWidth, 0)
 	}
 	if vFlip {
 		s.op.GeoM.Scale(1, -1)
 		s.op.GeoM.Translate(0, TileWidth)
-	}*/
+	}
 
 	// Move to current isometric position.
 	s.op.GeoM.Translate(xi, yi)
