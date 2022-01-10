@@ -19,8 +19,8 @@ const sampleRate = 44100
 //go:embed image map
 var FS embed.FS
 
-var ImgWhiteSquare = ebiten.NewImage(8, 8)
-var ImgBlackSquare = ebiten.NewImage(8, 8)
+var ImgWhiteSquare = ebiten.NewImage(128, 128)
+var ImgBlackSquare = ebiten.NewImage(128, 128)
 
 func init() {
 	ImgWhiteSquare.Fill(color.White)

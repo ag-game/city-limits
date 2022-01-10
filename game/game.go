@@ -81,11 +81,11 @@ func (g *game) Update() error {
 	if world.World.ResetGame {
 		world.Reset()
 
-		world.BuildStructure(world.StructureHouse1, 0, 0)
+		world.BuildStructure(world.StructureHouse1, false, 0, 0)
 
-		world.BuildStructure(world.StructureHouse1, 8, 12)
+		world.BuildStructure(world.StructureHouse1, false, 8, 12)
 
-		world.BuildStructure(world.StructurePoliceStation, 12, 12)
+		world.BuildStructure(world.StructurePoliceStation, false, 12, 12)
 
 		// TODO
 
@@ -160,7 +160,11 @@ func (g *game) renderSprite(x float64, y float64, offsetx float64, offsety float
 	// Center.
 	g.op.GeoM.Translate(cx, cy)
 
+	g.op.ColorM.Reset()
+	g.op.ColorM.Scale(colorScale, colorScale, colorScale, alpha)
+
 	target.DrawImage(sprite, g.op)
+	g.op.ColorM.Reset()
 
 	/*s.op.GeoM.Scale(geoScale, geoScale)
 	// Rotate
@@ -189,10 +193,22 @@ func (g *game) Draw(screen *ebiten.Image) {
 	for i := range world.World.Level.Tiles {
 		for x := range world.World.Level.Tiles[i] {
 			for y, tile := range world.World.Level.Tiles[i][x] {
-				if tile == nil || tile.Sprite == nil {
+				if tile == nil {
 					continue
 				}
-				g.renderSprite(float64(x), float64(y), 0, float64(i*-80), 0, 1, 1, 1, false, false, tile.Sprite, screen)
+				var sprite *ebiten.Image
+				alpha := 1.0
+				colorScale := 1.0
+				if tile.HoverSprite != nil {
+					sprite = tile.HoverSprite
+					alpha = 0.8
+					colorScale = 0.6
+				} else if tile.Sprite != nil {
+					sprite = tile.Sprite
+				} else {
+					continue
+				}
+				g.renderSprite(float64(x), float64(y), 0, float64(i*-80), 0, 1, colorScale, alpha, false, false, sprite, screen)
 			}
 		}
 	}

@@ -1,7 +1,6 @@
 package system
 
 import (
-	"log"
 	"os"
 
 	"code.rocketnine.space/tslocum/citylimits/component"
@@ -84,7 +83,29 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 		return nil
 	}
 
-	// TODO smooth camera zoom
+	// Update target zoom level.
+	var scrollY float64
+	if ebiten.IsKeyPressed(ebiten.KeyC) || ebiten.IsKeyPressed(ebiten.KeyPageDown) {
+		scrollY = -0.25
+	} else if ebiten.IsKeyPressed(ebiten.KeyE) || ebiten.IsKeyPressed(ebiten.KeyPageUp) {
+		scrollY = .25
+	} else {
+		_, scrollY = ebiten.Wheel()
+		if scrollY < -1 {
+			scrollY = -1
+		} else if scrollY > 1 {
+			scrollY = 1
+		}
+	}
+	world.World.CamScaleTarget += scrollY * (world.World.CamScaleTarget / 7)
+
+	// Smooth zoom transition.
+	div := 10.0
+	if world.World.CamScaleTarget > world.World.CamScale {
+		world.World.CamScale += (world.World.CamScaleTarget - world.World.CamScale) / div
+	} else if world.World.CamScaleTarget < world.World.CamScale {
+		world.World.CamScale -= (world.World.CamScale - world.World.CamScaleTarget) / div
+	}
 
 	pressLeft := ebiten.IsKeyPressed(ebiten.KeyLeft)
 	pressRight := ebiten.IsKeyPressed(ebiten.KeyRight)
@@ -132,13 +153,13 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 	if world.World.HoverStructure != 0 {
 		xx, yy := world.ScreenToIso(x, y)
 		tileX, tileY := world.IsoToCartesian(xx, yy)
-		log.Println(x, y, tileX, tileY)
 		if tileX >= 0 && tileY >= 0 && tileX < 256 && tileY < 256 {
-			if int(tileX) != world.World.HoverX || int(tileY) != world.World.HoverY {
-				world.BuildStructure(world.World.HoverStructure, int(tileX), int(tileY))
-				world.World.HoverX, world.World.HoverY = int(tileX), int(tileY)
-				log.Println("BUILD", x, y, int(tileX), int(tileY))
+			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+				world.BuildStructure(world.World.HoverStructure, false, int(tileX), int(tileY))
+			} else if int(tileX) != world.World.HoverX || int(tileY) != world.World.HoverY {
+				world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))
 			}
+			world.World.HoverX, world.World.HoverY = int(tileX), int(tileY)
 		}
 	}
 

@@ -7,7 +7,6 @@ import (
 	"log"
 	"math/rand"
 	"path/filepath"
-	"time"
 
 	"code.rocketnine.space/tslocum/citylimits/asset"
 	"code.rocketnine.space/tslocum/citylimits/component"
@@ -25,13 +24,14 @@ const (
 )
 
 var World = &GameWorld{
-	CamScale:     1,
-	CamMoving:    true,
-	PlayerWidth:  8,
-	PlayerHeight: 32,
-	TileImages:   make(map[uint32]*ebiten.Image),
-	ResetGame:    true,
-	Level:        NewLevel(256),
+	CamScale:       1,
+	CamScaleTarget: 1,
+	CamMoving:      true,
+	PlayerWidth:    8,
+	PlayerHeight:   32,
+	TileImages:     make(map[uint32]*ebiten.Image),
+	ResetGame:      true,
+	Level:          NewLevel(256),
 }
 
 type GameWorld struct {
@@ -58,9 +58,10 @@ type GameWorld struct {
 
 	PlayerX, PlayerY float64
 
-	CamX, CamY float64
-	CamScale   float64
-	CamMoving  bool
+	CamX, CamY     float64
+	CamScale       float64
+	CamScaleTarget float64
+	CamMoving      bool
 
 	PlayerWidth  float64
 	PlayerHeight float64
@@ -115,11 +116,8 @@ func Reset() {
 	World.MessageVisible = false
 }
 
-func BuildStructure(structureType int, placeX int, placeY int) (*Structure, error) {
-	tt := time.Now()
-	defer func() {
-		log.Println(time.Since(tt))
-	}()
+func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Structure, error) {
+	World.Level.ClearHoverSprites()
 
 	loader := tiled.Loader{
 		FileSystem: asset.FS,
@@ -141,7 +139,7 @@ func BuildStructure(structureType int, placeX int, placeY int) (*Structure, erro
 		log.Fatalf("error parsing world: %+v", err)
 	}
 
-	if placeX < 0 || placeY < 0 || placeX+m.Width > 256 || placeY+m.Height > 256 {
+	if placeX-m.Width < 0 || placeY-m.Height < 0 || placeX > 256 || placeY > 256 {
 		return nil, errors.New("invalid location: building does not fit")
 	}
 
@@ -211,20 +209,21 @@ func BuildStructure(structureType int, placeX int, placeY int) (*Structure, erro
 					continue
 				}
 
-				for i > len(World.Level.Tiles)-2 {
+				for i > len(World.Level.Tiles)-1 {
 					World.Level.AddLayer()
 				}
 
-				if World.Level.Tiles[i][x+placeX][y+placeY] == nil {
-					World.Level.Tiles[i][x+placeX][y+placeY] = &Tile{}
+				tx, ty := (x+placeX)-m.Width, (y+placeY)-m.Height
+				if World.Level.Tiles[i][tx][ty] == nil {
+					World.Level.Tiles[i][tx][ty] = &Tile{}
 				}
-				World.Level.Tiles[i][x+placeX][y+placeY].Sprite = World.TileImages[t.Tileset.FirstGID+t.ID]
+				if hover {
+					World.Level.Tiles[i][tx][ty].HoverSprite = World.TileImages[t.Tileset.FirstGID+t.ID]
+				} else {
+					World.Level.Tiles[i][tx][ty].Sprite = World.TileImages[t.Tileset.FirstGID+t.ID]
+				}
 
 				// TODO handle flipping
-
-				//tileX, tileY := TileToGameCoords(x, y)
-				//e := createTileEntity(t, tileX+float64(layer.OffsetY*2), tileY+float64(layer.OffsetY*2))
-				//tileEntities = append(tileEntities, e)
 			}
 		}
 	}
@@ -362,6 +361,7 @@ func CartesianToIso(x, y float64) (float64, float64) {
 func IsoToCartesian(x, y float64) (float64, float64) {
 	cx := (x/float64(TileSize/2) + y/float64(TileSize/4)) / 2
 	cy := (y/float64(TileSize/4) - (x / float64(TileSize/2))) / 2
+	cy++ // TODO Why is this necessary?
 	return cx, cy
 }
 
