@@ -252,6 +252,7 @@ func (g *game) Draw(screen *ebiten.Image) {
 				}
 				var sprite *ebiten.Image
 				colorScale := 1.0
+				alpha := 1.0
 				if tile.HoverSprite != nil {
 					sprite = tile.HoverSprite
 					colorScale = 0.6
@@ -260,12 +261,16 @@ func (g *game) Draw(screen *ebiten.Image) {
 					}
 				} else if tile.Sprite != nil {
 					sprite = tile.Sprite
+					// TODO
+					/*if i > 0 && world.World.HoverStructure == world.StructureRoad {
+						alpha = 0.6
+					}*/
 				} else if tile.EnvironmentSprite != nil {
 					sprite = tile.EnvironmentSprite
 				} else {
 					continue
 				}
-				drawn += g.renderSprite(float64(x), float64(y), 0, float64(i*-80), 0, 1, colorScale, 1, false, false, sprite, screen)
+				drawn += g.renderSprite(float64(x), float64(y), 0, float64(i*-80), 0, 1, colorScale, alpha, false, false, sprite, screen)
 			}
 		}
 	}

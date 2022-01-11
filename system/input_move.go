@@ -1,7 +1,12 @@
 package system
 
 import (
+	"math/rand"
 	"os"
+
+	"github.com/hajimehoshi/ebiten/v2/audio"
+
+	"code.rocketnine.space/tslocum/citylimits/asset"
 
 	"code.rocketnine.space/tslocum/citylimits/component"
 	"code.rocketnine.space/tslocum/citylimits/world"
@@ -78,7 +83,12 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyM) {
-		// TODO mute sound
+		world.World.MuteMusic = !world.World.MuteMusic
+		if world.World.MuteMusic {
+			asset.SoundMusic.Pause()
+		} else {
+			asset.SoundMusic.Play()
+		}
 	}
 
 	if world.World.GameOver {
@@ -119,10 +129,10 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 		world.World.CamScale -= (world.World.CamScale - world.World.CamScaleTarget) / div
 	}
 
-	pressLeft := ebiten.IsKeyPressed(ebiten.KeyLeft)
-	pressRight := ebiten.IsKeyPressed(ebiten.KeyRight)
-	pressUp := ebiten.IsKeyPressed(ebiten.KeyUp)
-	pressDown := ebiten.IsKeyPressed(ebiten.KeyDown)
+	pressLeft := ebiten.IsKeyPressed(ebiten.KeyLeft) || ebiten.IsKeyPressed(ebiten.KeyA)
+	pressRight := ebiten.IsKeyPressed(ebiten.KeyRight) || ebiten.IsKeyPressed(ebiten.KeyD)
+	pressUp := ebiten.IsKeyPressed(ebiten.KeyUp) || ebiten.IsKeyPressed(ebiten.KeyW)
+	pressDown := ebiten.IsKeyPressed(ebiten.KeyDown) || ebiten.IsKeyPressed(ebiten.KeyS)
 
 	const camSpeed = 10
 	if (pressLeft && !pressRight) ||
@@ -194,6 +204,8 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 					} else {
 						world.SetHoverStructure(button.StructureType)
 					}
+					asset.SoundSelect.Rewind()
+					asset.SoundSelect.Play()
 				}
 			}
 		}
@@ -213,7 +225,19 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 						world.World.Level.Tiles[i][int(tileX)][int(tileY)].EnvironmentSprite = img
 					}
 				} else {
-					world.BuildStructure(world.World.HoverStructure, false, int(tileX), int(tileY))
+					_, err := world.BuildStructure(world.World.HoverStructure, false, int(tileX), int(tileY))
+					if err == nil {
+						sounds := []*audio.Player{
+							asset.SoundPop1,
+							asset.SoundPop2,
+							asset.SoundPop3,
+							asset.SoundPop4,
+							asset.SoundPop5,
+						}
+						sound := sounds[rand.Intn(len(sounds))]
+						sound.Rewind()
+						sound.Play()
+					}
 				}
 				world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))
 			} else if int(tileX) != world.World.HoverX || int(tileY) != world.World.HoverY {

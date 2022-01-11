@@ -107,6 +107,9 @@ type GameWorld struct {
 
 	ResetGame bool
 
+	MuteMusic        bool
+	MuteSoundEffects bool // TODO
+
 	GotCursorPosition bool
 
 	tilesets []*ebiten.Image
@@ -292,15 +295,22 @@ func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Str
 	// TODO Add entity
 
 	valid := true
+	var existingRoadTiles int
 VALIDBUILD:
 	for y := 0; y < m.Height; y++ {
 		for x := 0; x < m.Width; x++ {
 			tx, ty := (x+placeX)-w, (y+placeY)-h
+			if structureType == StructureRoad && World.Level.Tiles[0][tx][ty].Sprite == World.TileImages[World.TileImagesFirstGID] {
+				existingRoadTiles++
+			}
 			if World.Level.Tiles[1][tx][ty].Sprite != nil || (World.Level.Tiles[0][tx][ty].Sprite != nil && (structureType != StructureRoad || World.Level.Tiles[0][tx][ty].Sprite != World.TileImages[World.TileImagesFirstGID])) {
 				valid = false
 				break VALIDBUILD
 			}
 		}
+	}
+	if structureType == StructureRoad && existingRoadTiles == 4 {
+		valid = false
 	}
 	if hover {
 		World.HoverValid = valid
@@ -412,6 +422,10 @@ func StartGame() {
 		return
 	}
 	World.GameStarted = true
+
+	if !World.MuteMusic {
+		asset.SoundMusic.Play()
+	}
 }
 
 func SetMessage(message string, duration int) {

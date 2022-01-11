@@ -16,12 +16,23 @@ import (
 
 const sampleRate = 44100
 
-//go:embed image map
+//go:embed image map sound
 var FS embed.FS
 
 var ImgWhiteSquare = ebiten.NewImage(128, 128)
 var ImgBlackSquare = ebiten.NewImage(128, 128)
 var ImgBlank = ebiten.NewImage(1, 1)
+
+var SoundMusic *audio.Player
+var SoundSelect *audio.Player
+
+var (
+	SoundPop1 *audio.Player
+	SoundPop2 *audio.Player
+	SoundPop3 *audio.Player
+	SoundPop4 *audio.Player
+	SoundPop5 *audio.Player
+)
 
 func init() {
 	ImgWhiteSquare.Fill(color.White)
@@ -29,7 +40,22 @@ func init() {
 }
 
 func LoadSounds(ctx *audio.Context) {
-	// TODO
+	SoundMusic = LoadOGG(ctx, "sound/we_will_build_it.ogg", true)
+	SoundMusic.SetVolume(0.6)
+
+	SoundSelect = LoadWAV(ctx, "sound/select/select.wav")
+	SoundSelect.SetVolume(0.6)
+
+	SoundPop1 = LoadWAV(ctx, "sound/pop/pop1.wav")
+	SoundPop2 = LoadWAV(ctx, "sound/pop/pop2.wav")
+	SoundPop3 = LoadWAV(ctx, "sound/pop/pop3.wav")
+	SoundPop4 = LoadWAV(ctx, "sound/pop/pop4.wav")
+	SoundPop5 = LoadWAV(ctx, "sound/pop/pop5.wav")
+	SoundPop1.SetVolume(0.2)
+	SoundPop2.SetVolume(0.2)
+	SoundPop3.SetVolume(0.2)
+	SoundPop4.SetVolume(0.2)
+	SoundPop5.SetVolume(0.2)
 }
 
 func LoadImage(p string) *ebiten.Image {

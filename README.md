@@ -28,9 +28,10 @@ Please share issues and suggestions [here](https://code.rocketnine.space/tslocum
 ## Credits
 
 - [Trevor Slocum](https://rocketnine.space) - Game design and programming
-- [node punk](https://open.spotify.com/artist/15eFpWQPNRxB89PnFNWvjU?si=z-jfVwYHTxugaC-BGZiyNg) - Music
+- [node punk](https://soundcloud.com/solve_x) - Music
 
 ## Dependencies
 
 - [ebiten](https://github.com/hajimehoshi/ebiten) - Game engine
 - [gohan](https://code.rocketnine.space/tslocum/gohan) - Entity Component System framework
+- [go-tiled](https://github.com/lafriks/go-tiled) - Tiled map file (.TMX) parser
