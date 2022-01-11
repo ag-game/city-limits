@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.5" tiledversion="1.7.2" orientation="isometric" renderorder="right-down" width="2" height="2" tilewidth="128" tileheight="64" infinite="0" nextlayerid="6" nextobjectid="1">
+ <tileset firstgid="1" source="../image/tileset/MRMO_BRIK.tsx"/>
+ <layer id="1" name="1" width="2" height="2">
+  <data encoding="csv">
+161,67,
+67,527
+</data>
+ </layer>
+ <layer id="2" name="2" width="2" height="2" offsetx="0" offsety="-80">
+  <data encoding="csv">
+0,67,
+67,67
+</data>
+ </layer>
+ <layer id="4" name="3" width="2" height="2" offsetx="0" offsety="-160">
+  <data encoding="csv">
+0,483,
+483,483
+</data>
+ </layer>
+ <layer id="5" name="4" width="2" height="2" offsetx="0" offsety="-240">
+  <data encoding="csv">
+67,67,
+67,67
+</data>
+ </layer>
+</map>

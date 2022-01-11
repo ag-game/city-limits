@@ -59,15 +59,12 @@ func NewGame() (*game, error) {
 	return g, nil
 }
 
-func (g *game) tileToGameCoords(x, y int) (float64, float64) {
-	return float64(x) * 32, float64(y) * 32
-}
-
 // Layout is called when the game's layout changes.
 func (g *game) Layout(w, h int) (int, int) {
 	if w != g.w || h != g.h {
 		world.World.ScreenW, world.World.ScreenH = w, h
 		g.w, g.h = w, h
+		world.World.HUDUpdated = true
 	}
 	return g.w, g.h
 }
@@ -118,6 +115,33 @@ func (g *game) Update() error {
 					world.World.Level.Tiles[0][x][y].Sprite = world.World.TileImages[img+world.World.TileImagesFirstGID]
 				}
 			}
+		}
+
+		// Load HUD sprites.
+
+		world.HUDButtons = []*world.HUDButton{
+			{
+				Sprite:        world.DrawMap(world.StructureBulldozer),
+				SpriteOffsetY: -4,
+				Label:         "Bulldoze",
+				StructureType: world.StructureBulldozer,
+			}, {
+				Sprite:        world.DrawMap(world.StructureHouse1),
+				SpriteOffsetX: 5,
+				Label:         "House",
+				StructureType: world.StructureHouse1,
+			}, {
+				Sprite:        world.DrawMap(world.StructureBusiness1),
+				SpriteOffsetX: 5,
+				Label:         "Business",
+				StructureType: world.StructureBusiness1,
+			}, {
+				Sprite:        world.DrawMap(world.StructurePoliceStation),
+				SpriteOffsetX: 5,
+				SpriteOffsetY: 8,
+				Label:         "Police Station",
+				StructureType: world.StructurePoliceStation,
+			},
 		}
 
 		world.BuildStructure(world.StructureHouse1, false, 0, 0)
@@ -228,6 +252,7 @@ func (g *game) renderSprite(x float64, y float64, offsetx float64, offsety float
 
 func (g *game) Draw(screen *ebiten.Image) {
 	// Handle background rendering separately to simplify design.
+	var drawn int
 	for i := range world.World.Level.Tiles {
 		for x := range world.World.Level.Tiles[i] {
 			for y, tile := range world.World.Level.Tiles[i][x] {
@@ -249,10 +274,11 @@ func (g *game) Draw(screen *ebiten.Image) {
 				} else {
 					continue
 				}
-				g.renderSprite(float64(x), float64(y), 0, float64(i*-80), 0, 1, colorScale, 1, false, false, sprite, screen)
+				drawn += g.renderSprite(float64(x), float64(y), 0, float64(i*-80), 0, 1, colorScale, 1, false, false, sprite, screen)
 			}
 		}
 	}
+	world.World.EnvironmentSprites = drawn
 
 	err := ECS.Draw(screen)
 	if err != nil {
@@ -271,6 +297,7 @@ func (g *game) addSystems() {
 	ecs.AddSystem(system.NewCameraSystem())
 	g.renderSystem = system.NewRenderSystem()
 	ecs.AddSystem(g.renderSystem)
+	ecs.AddSystem(system.NewRenderHudSystem())
 	ecs.AddSystem(system.NewRenderMessageSystem())
 	ecs.AddSystem(system.NewRenderDebugTextSystem(world.World.Player))
 	ecs.AddSystem(system.NewProfileSystem(world.World.Player))

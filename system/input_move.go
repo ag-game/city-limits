@@ -180,7 +180,18 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 		}
 	}
 
-	if world.World.HoverStructure != 0 {
+	if x < world.SidebarWidth {
+		world.World.Level.ClearHoverSprites()
+		world.World.HoverX, world.World.HoverY = 0, 0
+		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+			button := world.HUDButtonAt(x, y)
+			if button != nil {
+				if button.StructureType != 0 {
+					world.World.HoverStructure = button.StructureType
+				}
+			}
+		}
+	} else if world.World.HoverStructure != 0 {
 		xx, yy := world.ScreenToIso(x, y)
 		tileX, tileY := world.IsoToCartesian(xx, yy)
 		if tileX >= 0 && tileY >= 0 && tileX < 256 && tileY < 256 {

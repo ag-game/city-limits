@@ -19,11 +19,24 @@ import (
 const TileSize = 128
 
 const (
-	StructureHouse1 = iota + 1
+	StructureBulldozer = iota + 1
+	StructureHouse1
+	StructureBusiness1
 	StructurePoliceStation
 )
 
 const startingZoom = 0.5
+
+const SidebarWidth = 200
+
+type HUDButton struct {
+	Sprite                       *ebiten.Image
+	SpriteOffsetX, SpriteOffsetY float64
+	Label                        string
+	StructureType                int
+}
+
+var HUDButtons []*HUDButton
 
 var World = &GameWorld{
 	CamScale:       startingZoom,
@@ -95,6 +108,13 @@ type GameWorld struct {
 
 	tilesets []*ebiten.Image
 
+	EnvironmentSprites int
+
+	SelectedStructure *Structure
+
+	HUDUpdated     bool
+	HUDButtonRects []image.Rectangle
+
 	resetTipShown bool
 }
 
@@ -127,8 +147,12 @@ func LoadMap(structureType int) (*tiled.Map, error) {
 
 	var filePath string
 	switch structureType {
+	case StructureBulldozer:
+		filePath = "map/bulldozer.tmx"
 	case StructureHouse1:
 		filePath = "map/house1.tmx"
+	case StructureBusiness1:
+		filePath = "map/business1.tmx"
 	case StructurePoliceStation:
 		filePath = "map/policestation.tmx"
 	default:
@@ -142,6 +166,43 @@ func LoadMap(structureType int) (*tiled.Map, error) {
 	}
 
 	return m, err
+}
+
+func DrawMap(structureType int) *ebiten.Image {
+	img := ebiten.NewImage(SidebarWidth, SidebarWidth)
+
+	m, err := LoadMap(structureType)
+	if err != nil {
+		panic(err)
+	}
+
+	var t *tiled.LayerTile
+	for i, layer := range m.Layers {
+		for y := 0; y < m.Height; y++ {
+			for x := 0; x < m.Width; x++ {
+				t = layer.Tiles[y*m.Width+x]
+				if t == nil || t.Nil {
+					continue // No tile at this position.
+				}
+
+				tileImg := World.TileImages[t.Tileset.FirstGID+t.ID]
+				if tileImg == nil {
+					continue
+				}
+
+				xi, yi := CartesianToIso(float64(x), float64(y))
+
+				scale := 0.4 / float64(m.Width)
+				paddingX := 64.0
+				op := &ebiten.DrawImageOptions{}
+				op.GeoM.Translate(xi+(paddingX*(float64(m.Width)-1)), (yi+float64(i*-80))+92)
+				op.GeoM.Scale(scale, scale)
+				img.DrawImage(tileImg, op)
+			}
+		}
+	}
+
+	return img
 }
 
 func LoadTileset() error {
@@ -426,4 +487,14 @@ func ScreenToIso(x, y int) (float64, float64) {
 
 	cx, cy := float64(World.ScreenW/2), float64(World.ScreenH/2)
 	return ((float64(x) - cx) / World.CamScale) + World.CamX, ((float64(y) - cy) / World.CamScale) + World.CamY
+}
+
+func HUDButtonAt(x, y int) *HUDButton {
+	for i, colorRect := range World.HUDButtonRects {
+		point := image.Point{x, y}
+		if point.In(colorRect) {
+			return HUDButtons[i]
+		}
+	}
+	return nil
 }
