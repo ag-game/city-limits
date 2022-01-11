@@ -9,20 +9,14 @@
  </layer>
  <layer id="2" name="2" width="2" height="2" offsetx="0" offsety="-80">
   <data encoding="csv">
-0,67,
+67,0,
 67,67
 </data>
  </layer>
  <layer id="4" name="3" width="2" height="2" offsetx="0" offsety="-160">
   <data encoding="csv">
-0,483,
-483,483
-</data>
- </layer>
- <layer id="5" name="4" width="2" height="2" offsetx="0" offsety="-240">
-  <data encoding="csv">
-67,67,
-67,67
+0,0,
+67,0
 </data>
  </layer>
 </map>

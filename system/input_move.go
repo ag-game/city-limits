@@ -143,7 +143,7 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 		}
 	}
 
-	const scrollEdgeSize = 5
+	const scrollEdgeSize = 1
 	x, y := ebiten.CursorPosition()
 	if !world.World.GotCursorPosition {
 		if x != 0 || y != 0 {
@@ -154,7 +154,9 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 	}
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonMiddle) {
 		if s.scrollDragX == -1 && s.scrollDragY == -1 {
-			ebiten.SetCursorMode(ebiten.CursorModeCaptured)
+			// TODO disabled due to possible ebiten bug
+			//ebiten.SetCursorMode(ebiten.CursorModeCaptured)
+
 			s.scrollDragX, s.scrollDragY = x, y
 			s.scrollCamStartX, s.scrollCamStartY = world.World.CamX, world.World.CamY
 		} else {
@@ -164,8 +166,8 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 	} else {
 		if s.scrollDragX != -1 && s.scrollDragY != -1 {
 			s.scrollDragX, s.scrollDragY = -1, -1
-			ebiten.SetCursorMode(ebiten.CursorModeVisible)
-		} else if x >= 0 && y >= 0 && x < world.World.ScreenW && y < world.World.ScreenH {
+			//ebiten.SetCursorMode(ebiten.CursorModeVisible)
+		} else if x >= -2 && y >= -2 && x < world.World.ScreenW+2 && y < world.World.ScreenH+2 {
 			// Pan via screen edge.
 			if x <= scrollEdgeSize {
 				world.World.CamX -= camSpeed
@@ -187,16 +189,33 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 			button := world.HUDButtonAt(x, y)
 			if button != nil {
 				if button.StructureType != 0 {
-					world.World.HoverStructure = button.StructureType
+					if world.World.HoverStructure == button.StructureType {
+						world.SetHoverStructure(0) // Deselect.
+					} else {
+						world.SetHoverStructure(button.StructureType)
+					}
 				}
 			}
 		}
 	} else if world.World.HoverStructure != 0 {
-		xx, yy := world.ScreenToIso(x, y)
-		tileX, tileY := world.IsoToCartesian(xx, yy)
+		tileX, tileY := world.ScreenToCartesian(x, y)
 		if tileX >= 0 && tileY >= 0 && tileX < 256 && tileY < 256 {
-			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-				world.BuildStructure(world.World.HoverStructure, false, int(tileX), int(tileY))
+			multiUseStructure := world.World.HoverStructure == world.StructureBulldozer || world.World.HoverStructure == world.StructureRoad
+			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || (multiUseStructure && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)) {
+				if world.World.HoverStructure == world.StructureBulldozer {
+					for i := range world.World.Level.Tiles {
+						world.World.Level.Tiles[i][int(tileX)][int(tileY)].Sprite = nil
+
+						var img *ebiten.Image
+						if i == 0 {
+							img = world.World.TileImages[world.DirtTile+world.World.TileImagesFirstGID]
+						}
+						world.World.Level.Tiles[i][int(tileX)][int(tileY)].EnvironmentSprite = img
+					}
+				} else {
+					world.BuildStructure(world.World.HoverStructure, false, int(tileX), int(tileY))
+				}
+				world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))
 			} else if int(tileX) != world.World.HoverX || int(tileY) != world.World.HoverY {
 				world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))
 			}

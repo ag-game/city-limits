@@ -21,6 +21,7 @@ var FS embed.FS
 
 var ImgWhiteSquare = ebiten.NewImage(128, 128)
 var ImgBlackSquare = ebiten.NewImage(128, 128)
+var ImgBlank = ebiten.NewImage(1, 1)
 
 func init() {
 	ImgWhiteSquare.Fill(color.White)

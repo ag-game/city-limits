@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"code.rocketnine.space/tslocum/citylimits/component"
 	"code.rocketnine.space/tslocum/citylimits/entity"
 
 	"code.rocketnine.space/tslocum/citylimits/asset"
@@ -77,27 +76,30 @@ func (g *game) Update() error {
 
 	if world.World.ResetGame {
 		world.Reset()
+
+		rand.Seed(time.Now().UnixNano())
+
 		err := world.LoadTileset()
 		if err != nil {
 			return err
 		}
 
 		// Fill below ground layer.
-		dirtTile := uint32(9*32 + (0))
 		grassTile := uint32(11*32 + (0))
 		treeTileA := uint32(5*32 + (25))
 		treeTileB := uint32(5*32 + (27))
+		treeTileA = treeTileB // todo
 		var img uint32
 		for x := range world.World.Level.Tiles[0] {
 			for y := range world.World.Level.Tiles[0][x] {
-				img = dirtTile
+				img = world.DirtTile
 				if rand.Intn(128) == 0 {
 					img = grassTile
-					world.World.Level.Tiles[0][x][y].Sprite = world.World.TileImages[img+world.World.TileImagesFirstGID]
+					world.World.Level.Tiles[0][x][y].EnvironmentSprite = world.World.TileImages[img+world.World.TileImagesFirstGID]
 					for offsetX := -2 - rand.Intn(7); offsetX < 2+rand.Intn(7); offsetX++ {
 						for offsetY := -2 - rand.Intn(7); offsetY < 2+rand.Intn(7); offsetY++ {
 							if x+offsetX >= 0 && y+offsetY >= 0 && x+offsetX < 256 && y+offsetY < 256 {
-								world.World.Level.Tiles[0][x+offsetX][y+offsetY].Sprite = world.World.TileImages[img+world.World.TileImagesFirstGID]
+								world.World.Level.Tiles[0][x+offsetX][y+offsetY].EnvironmentSprite = world.World.TileImages[img+world.World.TileImagesFirstGID]
 								if rand.Intn(2) == 0 {
 									if rand.Intn(3) == 0 {
 										world.World.Level.Tiles[1][x+offsetX][y+offsetY].EnvironmentSprite = world.World.TileImages[treeTileA+world.World.TileImagesFirstGID]
@@ -109,10 +111,10 @@ func (g *game) Update() error {
 						}
 					}
 				} else {
-					if world.World.Level.Tiles[0][x][y].Sprite != nil {
+					if world.World.Level.Tiles[0][x][y].EnvironmentSprite != nil {
 						continue
 					}
-					world.World.Level.Tiles[0][x][y].Sprite = world.World.TileImages[img+world.World.TileImagesFirstGID]
+					world.World.Level.Tiles[0][x][y].EnvironmentSprite = world.World.TileImages[img+world.World.TileImagesFirstGID]
 				}
 			}
 		}
@@ -122,9 +124,16 @@ func (g *game) Update() error {
 		world.HUDButtons = []*world.HUDButton{
 			{
 				Sprite:        world.DrawMap(world.StructureBulldozer),
-				SpriteOffsetY: -4,
+				SpriteOffsetX: 12,
+				SpriteOffsetY: -18,
 				Label:         "Bulldoze",
 				StructureType: world.StructureBulldozer,
+			}, {
+				Sprite:        world.DrawMap(world.StructureRoad),
+				SpriteOffsetX: 5,
+				SpriteOffsetY: -8,
+				Label:         "Road",
+				StructureType: world.StructureRoad,
 			}, {
 				Sprite:        world.DrawMap(world.StructureHouse1),
 				SpriteOffsetX: 5,
@@ -144,35 +153,17 @@ func (g *game) Update() error {
 			},
 		}
 
-		world.BuildStructure(world.StructureHouse1, false, 0, 0)
-
-		world.BuildStructure(world.StructureHouse1, false, 8, 12)
-
-		world.BuildStructure(world.StructurePoliceStation, false, 12, 12)
-
 		// TODO
-
-		world.World.HoverStructure = world.StructurePoliceStation
 
 		if world.World.Player == 0 {
 			world.World.Player = entity.NewPlayer()
 		}
-
-		const playerStartOffset = 128
-
-		w := float64(world.World.Map.Width * world.World.Map.TileWidth)
-		h := float64(world.World.Map.Height * world.World.Map.TileHeight)
-
-		position := ECS.Component(world.World.Player, component.PositionComponentID).(*component.PositionComponent)
-		position.X, position.Y = w/2, h-playerStartOffset
 
 		if !g.addedSystems {
 			g.addSystems()
 
 			g.addedSystems = true // TODO
 		}
-
-		rand.Seed(time.Now().UnixNano())
 
 		world.World.ResetGame = false
 		world.World.GameOver = false
@@ -265,7 +256,7 @@ func (g *game) Draw(screen *ebiten.Image) {
 					sprite = tile.HoverSprite
 					colorScale = 0.6
 					if !world.World.HoverValid {
-						colorScale = 0.1
+						colorScale = 0.2
 					}
 				} else if tile.Sprite != nil {
 					sprite = tile.Sprite

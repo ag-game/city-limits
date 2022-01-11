@@ -18,8 +18,11 @@ import (
 
 const TileSize = 128
 
+var DirtTile = uint32(9*32 + (0))
+
 const (
 	StructureBulldozer = iota + 1
+	StructureRoad
 	StructureHouse1
 	StructureBusiness1
 	StructurePoliceStation
@@ -27,7 +30,7 @@ const (
 
 const startingZoom = 0.5
 
-const SidebarWidth = 200
+const SidebarWidth = 198
 
 type HUDButton struct {
 	Sprite                       *ebiten.Image
@@ -149,6 +152,8 @@ func LoadMap(structureType int) (*tiled.Map, error) {
 	switch structureType {
 	case StructureBulldozer:
 		filePath = "map/bulldozer.tmx"
+	case StructureRoad:
+		filePath = "map/road.tmx"
 	case StructureHouse1:
 		filePath = "map/house1.tmx"
 	case StructureBusiness1:
@@ -193,6 +198,10 @@ func DrawMap(structureType int) *ebiten.Image {
 				xi, yi := CartesianToIso(float64(x), float64(y))
 
 				scale := 0.4 / float64(m.Width)
+				if m.Width < 2 {
+					scale = 0.3
+				}
+
 				paddingX := 64.0
 				op := &ebiten.DrawImageOptions{}
 				op.GeoM.Translate(xi+(paddingX*(float64(m.Width)-1)), (yi+float64(i*-80))+92)
@@ -243,14 +252,15 @@ func LoadTileset() error {
 }
 
 func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Structure, error) {
-	World.Level.ClearHoverSprites()
-
 	m, err := LoadMap(structureType)
 	if err != nil {
 		return nil, err
 	}
 
-	if placeX-m.Width < 0 || placeY-m.Height < 0 || placeX > 256 || placeY > 256 {
+	w := m.Width - 1
+	h := m.Height - 1
+
+	if placeX-w < 0 || placeY-h < 0 || placeX > 256 || placeY > 256 {
 		return nil, errors.New("invalid location: building does not fit")
 	}
 
@@ -281,24 +291,36 @@ func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Str
 
 	// TODO Add entity
 
-	if hover {
-		World.HoverValid = true
-		for y := 0; y < m.Height; y++ {
-			for x := 0; x < m.Width; x++ {
-				tx, ty := (x+placeX)-m.Width, (y+placeY)-m.Height
-				if World.Level.Tiles[1][tx][ty].Sprite != nil {
-					World.HoverValid = false
-					break // TODO
-				}
+	valid := true
+VALIDBUILD:
+	for y := 0; y < m.Height; y++ {
+		for x := 0; x < m.Width; x++ {
+			tx, ty := (x+placeX)-w, (y+placeY)-h
+			if World.Level.Tiles[1][tx][ty].Sprite != nil || (World.Level.Tiles[0][tx][ty].Sprite != nil && (structureType != StructureRoad || World.Level.Tiles[0][tx][ty].Sprite != World.TileImages[World.TileImagesFirstGID])) {
+				valid = false
+				break VALIDBUILD
 			}
 		}
 	}
+	if hover {
+		World.HoverValid = valid
+	} else if !valid {
+		return nil, errors.New("invalid location: space already occupied")
+	}
+
+	World.Level.ClearHoverSprites()
 
 	for y := 0; y < m.Height; y++ {
 		for x := 0; x < m.Width; x++ {
-			tx, ty := (x+placeX)-m.Width, (y+placeY)-m.Height
+			tx, ty := (x+placeX)-w, (y+placeY)-h
 			if hover {
 				World.Level.Tiles[0][tx][ty].HoverSprite = World.TileImages[World.TileImagesFirstGID]
+				if valid {
+					// Hide environment sprites temporarily.
+					for i := 1; i < len(World.Level.Tiles); i++ {
+						World.Level.Tiles[i][tx][ty].HoverSprite = asset.ImgBlank
+					}
+				}
 			} else {
 				World.Level.Tiles[0][tx][ty].Sprite = World.TileImages[World.TileImagesFirstGID]
 				World.Level.Tiles[0][tx][ty].EnvironmentSprite = nil
@@ -321,13 +343,16 @@ func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Str
 					continue
 				}
 
-				layerNum := i + 1
+				layerNum := i
+				if structureType != StructureRoad {
+					layerNum++
+				}
 
 				for layerNum > len(World.Level.Tiles)-1 {
 					World.Level.AddLayer()
 				}
 
-				tx, ty := (x+placeX)-m.Width, (y+placeY)-m.Height
+				tx, ty := (x+placeX)-w, (y+placeY)-h
 				if hover {
 					World.Level.Tiles[layerNum][tx][ty].HoverSprite = World.TileImages[t.Tileset.FirstGID+t.ID]
 				} else {
@@ -335,70 +360,6 @@ func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Str
 				}
 
 				// TODO handle flipping
-			}
-		}
-	}
-
-	// Load ObjectGroups.
-
-	var objects []*tiled.ObjectGroup
-	var loadObjects func(grp *tiled.Group)
-	loadObjects = func(grp *tiled.Group) {
-		for _, subGrp := range grp.Groups {
-			loadObjects(subGrp)
-		}
-		for _, objGrp := range grp.ObjectGroups {
-			objects = append(objects, objGrp)
-		}
-	}
-	for _, grp := range m.Groups {
-		loadObjects(grp)
-	}
-	for _, objGrp := range m.ObjectGroups {
-		objects = append(objects, objGrp)
-	}
-
-	World.Map = m
-	World.ObjectGroups = objects
-
-	for _, grp := range World.ObjectGroups {
-		if grp.Name == "TRIGGERS" {
-			for _, obj := range grp.Objects {
-				mapTile := ECS.NewEntity()
-				ECS.AddComponent(mapTile, &component.PositionComponent{
-					X: obj.X,
-					Y: obj.Y - 32,
-				})
-				ECS.AddComponent(mapTile, &component.SpriteComponent{
-					Image: World.TileImages[obj.GID],
-				})
-
-				World.TriggerNames = append(World.TriggerNames, obj.Name)
-				World.TriggerEntities = append(World.TriggerEntities, mapTile)
-				World.TriggerRects = append(World.TriggerRects, ObjectToRect(obj))
-			}
-		} else if grp.Name == "HAZARDS" {
-			for _, obj := range grp.Objects {
-				r := ObjectToRect(obj)
-				r.Min.Y += 32
-				r.Max.Y += 32
-				World.HazardRects = append(World.HazardRects, r)
-			}
-		} else if grp.Name == "CREEPS" {
-			for _, obj := range grp.Objects {
-				creepType := component.CreepSnowblower
-				switch obj.GID {
-				case 9:
-					creepType = component.CreepSmallRock
-				case 18:
-					creepType = component.CreepMediumRock
-				case 23:
-					creepType = component.CreepLargeRock
-				}
-				r := ObjectToRect(obj)
-				c := NewActor(creepType, int64(obj.ID), float64(r.Min.X), float64(r.Min.Y))
-				World.CreepRects = append(World.CreepRects, r)
-				World.CreepEntities = append(World.CreepEntities, c)
 			}
 		}
 	}
@@ -472,7 +433,7 @@ func CartesianToIso(x, y float64) (float64, float64) {
 func IsoToCartesian(x, y float64) (float64, float64) {
 	cx := (x/float64(TileSize/2) + y/float64(TileSize/4)) / 2
 	cy := (y/float64(TileSize/4) - (x / float64(TileSize/2))) / 2
-	cy++ // TODO Why is this necessary?
+	cx-- // TODO Why is this necessary?
 	return cx, cy
 }
 
@@ -482,11 +443,16 @@ func IsoToScreen(x, y float64) (float64, float64) {
 }
 
 func ScreenToIso(x, y int) (float64, float64) {
-	// Offset to first above ground layer.
+	// Offset cursor to first above ground layer.
 	y += int(float64(32) * World.CamScale)
 
 	cx, cy := float64(World.ScreenW/2), float64(World.ScreenH/2)
 	return ((float64(x) - cx) / World.CamScale) + World.CamX, ((float64(y) - cy) / World.CamScale) + World.CamY
+}
+
+func ScreenToCartesian(x, y int) (float64, float64) {
+	xi, yi := ScreenToIso(x, y)
+	return IsoToCartesian(xi, yi)
 }
 
 func HUDButtonAt(x, y int) *HUDButton {
@@ -497,4 +463,9 @@ func HUDButtonAt(x, y int) *HUDButton {
 		}
 	}
 	return nil
+}
+
+func SetHoverStructure(structureType int) {
+	World.HoverStructure = structureType
+	World.HUDUpdated = true
 }

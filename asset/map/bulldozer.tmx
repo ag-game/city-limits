@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.5" tiledversion="1.7.2" orientation="isometric" renderorder="right-down" width="2" height="1" tilewidth="128" tileheight="64" infinite="0" nextlayerid="4" nextobjectid="1">
+<map version="1.5" tiledversion="1.7.2" orientation="isometric" renderorder="right-down" width="1" height="1" tilewidth="128" tileheight="64" infinite="0" nextlayerid="4" nextobjectid="1">
  <tileset firstgid="1" source="../image/tileset/MRMO_BRIK.tsx"/>
- <layer id="1" name="1" width="2" height="1">
+ <layer id="1" name="1" width="1" height="1">
   <data encoding="csv">
-8,310
+310
 </data>
  </layer>
 </map>
