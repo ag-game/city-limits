@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	TileWidth = 128
+	TileWidth = 64
 
 	logoText      = "POWERED BY EBITEN"
 	logoTextScale = 4.75

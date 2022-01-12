@@ -15,10 +15,6 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
-const (
-	moveSpeed = 1.5
-)
-
 type playerMoveSystem struct {
 	player       gohan.Entity
 	movement     *MovementSystem
@@ -113,8 +109,8 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 		}
 	}
 	world.World.CamScaleTarget += scrollY * (world.World.CamScaleTarget / 7)
-	const minZoom = .15
-	const maxZoom = 2
+	const minZoom = .4
+	const maxZoom = 1
 	if world.World.CamScaleTarget < minZoom {
 		world.World.CamScaleTarget = minZoom
 	} else if world.World.CamScaleTarget > maxZoom {

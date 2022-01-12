@@ -123,32 +123,33 @@ func (g *game) Update() error {
 
 		world.HUDButtons = []*world.HUDButton{
 			{
+				Label:         "Bulldoze",
 				Sprite:        world.DrawMap(world.StructureBulldozer),
 				SpriteOffsetX: 12,
-				SpriteOffsetY: -18,
-				Label:         "Bulldoze",
+				SpriteOffsetY: -48,
 				StructureType: world.StructureBulldozer,
 			}, {
-				Sprite:        world.DrawMap(world.StructureRoad),
-				SpriteOffsetX: 5,
-				SpriteOffsetY: -8,
 				Label:         "Road",
+				Sprite:        world.DrawMap(world.StructureRoad),
+				SpriteOffsetX: -12,
+				SpriteOffsetY: -28,
 				StructureType: world.StructureRoad,
 			}, {
-				Sprite:        world.DrawMap(world.StructureHouse1),
-				SpriteOffsetX: 5,
 				Label:         "House",
+				Sprite:        world.DrawMap(world.StructureHouse1),
+				SpriteOffsetX: -12,
+				SpriteOffsetY: -28,
 				StructureType: world.StructureHouse1,
 			}, {
-				Sprite:        world.DrawMap(world.StructureBusiness1),
-				SpriteOffsetX: 5,
 				Label:         "Business",
+				Sprite:        world.DrawMap(world.StructureBusiness1),
+				SpriteOffsetX: -10,
+				SpriteOffsetY: -28,
 				StructureType: world.StructureBusiness1,
 			}, {
-				Sprite:        world.DrawMap(world.StructurePoliceStation),
-				SpriteOffsetX: 5,
-				SpriteOffsetY: 8,
 				Label:         "Police Station",
+				SpriteOffsetX: -19,
+				Sprite:        world.DrawMap(world.StructurePoliceStation),
 				StructureType: world.StructurePoliceStation,
 			},
 		}
@@ -270,7 +271,7 @@ func (g *game) Draw(screen *ebiten.Image) {
 				} else {
 					continue
 				}
-				drawn += g.renderSprite(float64(x), float64(y), 0, float64(i*-80), 0, 1, colorScale, alpha, false, false, sprite, screen)
+				drawn += g.renderSprite(float64(x), float64(y), 0, float64(i*-40), 0, 1, colorScale, alpha, false, false, sprite, screen)
 			}
 		}
 	}

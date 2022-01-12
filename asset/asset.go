@@ -19,8 +19,8 @@ const sampleRate = 44100
 //go:embed image map sound
 var FS embed.FS
 
-var ImgWhiteSquare = ebiten.NewImage(128, 128)
-var ImgBlackSquare = ebiten.NewImage(128, 128)
+var ImgWhiteSquare = ebiten.NewImage(64, 64)
+var ImgBlackSquare = ebiten.NewImage(64, 64)
 var ImgBlank = ebiten.NewImage(1, 1)
 
 var SoundMusic *audio.Player

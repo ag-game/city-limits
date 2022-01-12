@@ -16,7 +16,7 @@ import (
 	"github.com/lafriks/go-tiled"
 )
 
-const TileSize = 128
+const TileSize = 64
 
 var DirtTile = uint32(9*32 + (0))
 
@@ -28,7 +28,7 @@ const (
 	StructurePoliceStation
 )
 
-const startingZoom = 0.5
+const startingZoom = 1.0
 
 const SidebarWidth = 198
 
@@ -177,7 +177,7 @@ func LoadMap(structureType int) (*tiled.Map, error) {
 }
 
 func DrawMap(structureType int) *ebiten.Image {
-	img := ebiten.NewImage(SidebarWidth, SidebarWidth)
+	img := ebiten.NewImage(128, 128)
 
 	m, err := LoadMap(structureType)
 	if err != nil {
@@ -200,14 +200,14 @@ func DrawMap(structureType int) *ebiten.Image {
 
 				xi, yi := CartesianToIso(float64(x), float64(y))
 
-				scale := 0.4 / float64(m.Width)
+				scale := 0.9 / float64(m.Width)
 				if m.Width < 2 {
-					scale = 0.3
+					scale = 0.6
 				}
 
 				paddingX := 64.0
 				op := &ebiten.DrawImageOptions{}
-				op.GeoM.Translate(xi+(paddingX*(float64(m.Width)-1)), (yi+float64(i*-80))+92)
+				op.GeoM.Translate(xi+(paddingX*(float64(m.Width)-1)), (yi+float64(i*-40))+92)
 				op.GeoM.Scale(scale, scale)
 				img.DrawImage(tileImg, op)
 			}
@@ -458,7 +458,7 @@ func IsoToScreen(x, y float64) (float64, float64) {
 
 func ScreenToIso(x, y int) (float64, float64) {
 	// Offset cursor to first above ground layer.
-	y += int(float64(32) * World.CamScale)
+	y += int(float64(16) * World.CamScale)
 
 	cx, cy := float64(World.ScreenW/2), float64(World.ScreenH/2)
 	return ((float64(x) - cx) / World.CamScale) + World.CamX, ((float64(y) - cy) / World.CamScale) + World.CamY

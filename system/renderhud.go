@@ -109,7 +109,7 @@ func (s *RenderHudSystem) drawHUD() {
 		// Draw sprite.
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(x+paddingSize)+button.SpriteOffsetX, float64(y+paddingSize)+button.SpriteOffsetY)
-		s.tmpImg.DrawImage(button.Sprite, op)
+		s.tmpImg.SubImage(image.Rect(r.Min.X, r.Min.Y, r.Max.X, r.Max.Y)).(*ebiten.Image).DrawImage(button.Sprite, op)
 
 		// Draw top and left border.
 		s.tmpImg.SubImage(image.Rect(r.Min.X, r.Min.Y, r.Max.X, r.Min.Y+borderSize)).(*ebiten.Image).Fill(topLeftBorder)
