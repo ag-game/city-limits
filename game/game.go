@@ -37,6 +37,8 @@ type game struct {
 
 	addedSystems bool
 
+	updateTicks int
+
 	sync.Mutex
 }
 
@@ -72,6 +74,13 @@ func (g *game) Update() error {
 	if ebiten.IsWindowBeingClosed() {
 		g.Exit()
 		return nil
+	}
+
+	const updateSidebarDelay = 144 * 3
+	g.updateTicks++
+	if g.updateTicks == updateSidebarDelay {
+		world.World.HUDUpdated = true
+		g.updateTicks = 0
 	}
 
 	if world.World.ResetGame {

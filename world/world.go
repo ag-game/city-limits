@@ -483,3 +483,10 @@ func SetHoverStructure(structureType int) {
 	World.HoverStructure = structureType
 	World.HUDUpdated = true
 }
+
+func Demand() (r, c, i float64) {
+	r = (rand.Float64() * 2) - 1
+	c = (rand.Float64() * 2) - 1
+	i = (rand.Float64() * 2) - 1
+	return r, c, i
+}
