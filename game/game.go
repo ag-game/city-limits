@@ -80,7 +80,8 @@ func (g *game) Update() error {
 	g.updateTicks++
 	if g.updateTicks == updateSidebarDelay {
 		world.World.HUDUpdated = true
-		g.updateTicks = 0
+		//g.updateTicks = 0
+		// TODO
 	}
 
 	if world.World.ResetGame {

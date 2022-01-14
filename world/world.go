@@ -490,3 +490,15 @@ func Demand() (r, c, i float64) {
 	i = (rand.Float64() * 2) - 1
 	return r, c, i
 }
+
+var tooltips = map[int]string{
+	StructureBulldozer:     "Bulldoze",
+	StructureRoad:          "Road",
+	StructureHouse1:        "Residential",
+	StructureBusiness1:     "Commercial",
+	StructurePoliceStation: "Police station",
+}
+
+func Tooltip() string {
+	return tooltips[World.HoverStructure]
+}

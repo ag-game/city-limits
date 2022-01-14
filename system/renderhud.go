@@ -51,14 +51,16 @@ func (s *RenderHudSystem) Update(_ *gohan.Context) error {
 func (s *RenderHudSystem) Draw(_ *gohan.Context, screen *ebiten.Image) error {
 	// Draw HUD.
 	if world.World.HUDUpdated {
-		s.drawHUD()
+		s.hudImg.Clear()
+		s.drawSidebar()
+		s.drawTooltip()
 		world.World.HUDUpdated = false
 	}
 	screen.DrawImage(s.hudImg, nil)
 	return nil
 }
 
-func (s *RenderHudSystem) drawHUD() {
+func (s *RenderHudSystem) drawSidebar() {
 	bounds := s.hudImg.Bounds()
 	if bounds.Dx() != world.World.ScreenW || bounds.Dy() != world.World.ScreenH {
 		s.hudImg = ebiten.NewImage(world.World.ScreenW, world.World.ScreenH)
@@ -184,4 +186,24 @@ func (s *RenderHudSystem) drawButtonBorder(img *ebiten.Image, r image.Rectangle,
 	// Draw bottom and right border.
 	img.SubImage(image.Rect(r.Min.X, r.Max.Y-borderSize, r.Max.X, r.Max.Y)).(*ebiten.Image).Fill(bottomRightBorder)
 	img.SubImage(image.Rect(r.Max.X-borderSize, r.Min.Y, r.Max.X, r.Max.Y)).(*ebiten.Image).Fill(bottomRightBorder)
+}
+
+func (s *RenderHudSystem) drawTooltip() {
+	label := world.Tooltip()
+	if label == "" {
+		return
+	}
+
+	scale := 3.0
+	x, y := world.SidebarWidth, 0
+	w, h := (len(label)*6+10)*int(scale), 22*(int(scale))
+	r := image.Rect(x, y, x+w, y+h)
+
+	s.tmpImg.Clear()
+	ebitenutil.DebugPrint(s.tmpImg, label)
+	s.hudImg.SubImage(r).(*ebiten.Image).Fill(color.RGBA{0, 0, 0, 120})
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(world.SidebarWidth+(4*scale), 4)
+	s.hudImg.DrawImage(s.tmpImg, op)
 }
