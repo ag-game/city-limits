@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"path/filepath"
+	"strconv"
 
 	"code.rocketnine.space/tslocum/citylimits/asset"
 	"code.rocketnine.space/tslocum/citylimits/component"
@@ -14,6 +15,13 @@ import (
 	"code.rocketnine.space/tslocum/gohan"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/lafriks/go-tiled"
+)
+
+const startingYear = 1950
+
+const (
+	MonthTicks = 144 * 3
+	YearTicks  = MonthTicks * 12
 )
 
 const TileSize = 64
@@ -40,6 +48,9 @@ type HUDButton struct {
 }
 
 var HUDButtons []*HUDButton
+
+var CameraMinZoom = 0.4
+var CameraMaxZoom = 1.0
 
 var World = &GameWorld{
 	CamScale:       startingZoom,
@@ -120,6 +131,10 @@ type GameWorld struct {
 
 	HUDUpdated     bool
 	HUDButtonRects []image.Rectangle
+
+	Ticks int
+
+	Paused bool
 
 	resetTipShown bool
 }
@@ -501,4 +516,24 @@ var tooltips = map[int]string{
 
 func Tooltip() string {
 	return tooltips[World.HoverStructure]
+}
+
+var monthNames = []string{
+	"January",
+	"February",
+	"March",
+	"April",
+	"May",
+	"June",
+	"July",
+	"August",
+	"September",
+	"October",
+	"November",
+	"December",
+}
+
+func Date() (month string, year string) {
+	y, m := World.Ticks/YearTicks, (World.Ticks%YearTicks)/MonthTicks
+	return monthNames[m], strconv.Itoa(startingYear + y)
 }

@@ -296,10 +296,17 @@ func (g *game) Draw(screen *ebiten.Image) {
 func (g *game) addSystems() {
 	ecs := ECS
 
+	// Simulation systems.
+	ecs.AddSystem(system.NewTickSystem())
+	ecs.AddSystem(system.NewPowerScanSystem())
+
+	// Input systems.
 	g.movementSystem = system.NewMovementSystem()
 	ecs.AddSystem(system.NewPlayerMoveSystem(world.World.Player, g.movementSystem))
 	ecs.AddSystem(system.NewplayerFireSystem())
 	ecs.AddSystem(g.movementSystem)
+
+	// Render systems.
 	ecs.AddSystem(system.NewCreepSystem())
 	ecs.AddSystem(system.NewCameraSystem())
 	g.renderSystem = system.NewRenderSystem()

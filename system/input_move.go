@@ -109,12 +109,10 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 		}
 	}
 	world.World.CamScaleTarget += scrollY * (world.World.CamScaleTarget / 7)
-	const minZoom = .4
-	const maxZoom = 1
-	if world.World.CamScaleTarget < minZoom {
-		world.World.CamScaleTarget = minZoom
-	} else if world.World.CamScaleTarget > maxZoom {
-		world.World.CamScaleTarget = maxZoom
+	if world.World.CamScaleTarget < world.CameraMinZoom {
+		world.World.CamScaleTarget = world.CameraMinZoom
+	} else if world.World.CamScaleTarget > world.CameraMaxZoom {
+		world.World.CamScaleTarget = world.CameraMaxZoom
 	}
 
 	// Smooth zoom transition.

@@ -11,5 +11,8 @@ import (
 func parseFlags() {
 	world.World.DisableEsc = true
 
+	// Adjust minimum zoom level due to performance decrease when targeting WASM.
+	world.CameraMinZoom = 0.6
+
 	ebiten.SetFullscreen(true)
 }

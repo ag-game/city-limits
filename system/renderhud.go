@@ -16,14 +16,16 @@ type RenderHudSystem struct {
 	op           *ebiten.DrawImageOptions
 	hudImg       *ebiten.Image
 	tmpImg       *ebiten.Image
+	tmpImg2      *ebiten.Image
 	sidebarColor color.RGBA
 }
 
 func NewRenderHudSystem() *RenderHudSystem {
 	s := &RenderHudSystem{
-		op:     &ebiten.DrawImageOptions{},
-		hudImg: ebiten.NewImage(1, 1),
-		tmpImg: ebiten.NewImage(1, 1),
+		op:      &ebiten.DrawImageOptions{},
+		hudImg:  ebiten.NewImage(1, 1),
+		tmpImg:  ebiten.NewImage(1, 1),
+		tmpImg2: ebiten.NewImage(1, 1),
 	}
 
 	sidebarShade := uint8(111)
@@ -65,9 +67,11 @@ func (s *RenderHudSystem) drawSidebar() {
 	if bounds.Dx() != world.World.ScreenW || bounds.Dy() != world.World.ScreenH {
 		s.hudImg = ebiten.NewImage(world.World.ScreenW, world.World.ScreenH)
 		s.tmpImg = ebiten.NewImage(world.SidebarWidth, world.World.ScreenH)
+		s.tmpImg2 = ebiten.NewImage(world.SidebarWidth, world.World.ScreenH)
 	} else {
 		s.hudImg.Clear()
 		s.tmpImg.Clear()
+		s.tmpImg2.Clear()
 	}
 	w := world.SidebarWidth
 	if bounds.Dx() < w {
@@ -75,15 +79,15 @@ func (s *RenderHudSystem) drawSidebar() {
 	}
 
 	// Fill background.
-	s.tmpImg.Fill(s.sidebarColor)
+	s.hudImg.SubImage(image.Rect(0, 0, world.SidebarWidth, world.World.ScreenH)).(*ebiten.Image).Fill(s.sidebarColor)
 
 	// Draw buttons.
 
-	paddingSize := 1
-	columns := 3
+	const paddingSize = 1
+	const columns = 3
 
-	buttonWidth := world.SidebarWidth / columns
-	buttonHeight := buttonWidth
+	const buttonWidth = world.SidebarWidth / columns
+	const buttonHeight = buttonWidth
 	world.World.HUDButtonRects = make([]image.Rectangle, len(world.HUDButtons))
 	var lastButtonY int
 	for i, button := range world.HUDButtons {
@@ -107,8 +111,10 @@ func (s *RenderHudSystem) drawSidebar() {
 		lastButtonY = y
 	}
 
+	s.drawDate(lastButtonY + buttonHeight + 5)
+
 	// Draw RCI indicator.
-	rciPadding := buttonWidth / 2
+	rciPadding := buttonWidth - 14
 	const rciSize = 100
 	rciX := buttonWidth
 	rciY := lastButtonY + buttonHeight + rciPadding
@@ -198,12 +204,39 @@ func (s *RenderHudSystem) drawTooltip() {
 	x, y := world.SidebarWidth, 0
 	w, h := (len(label)*6+10)*int(scale), 22*(int(scale))
 	r := image.Rect(x, y, x+w, y+h)
+	s.hudImg.SubImage(r).(*ebiten.Image).Fill(color.RGBA{0, 0, 0, 120})
 
 	s.tmpImg.Clear()
 	ebitenutil.DebugPrint(s.tmpImg, label)
-	s.hudImg.SubImage(r).(*ebiten.Image).Fill(color.RGBA{0, 0, 0, 120})
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(scale, scale)
 	op.GeoM.Translate(world.SidebarWidth+(4*scale), 4)
 	s.hudImg.DrawImage(s.tmpImg, op)
+}
+
+func (s *RenderHudSystem) drawDate(y int) {
+	const datePadding = 10
+	month, year := world.Date()
+	label := month
+
+	scale := 2.0
+	x, y := datePadding, y
+
+	s.tmpImg2.Clear()
+	ebitenutil.DebugPrint(s.tmpImg2, label)
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(float64(x), float64(y))
+	s.hudImg.DrawImage(s.tmpImg2, op)
+
+	label = year
+
+	x = world.SidebarWidth - 1 - datePadding - (len(label) * 6 * int(scale))
+
+	s.tmpImg2.Clear()
+	ebitenutil.DebugPrint(s.tmpImg2, label)
+	op.GeoM.Reset()
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(float64(x), float64(y))
+	s.hudImg.DrawImage(s.tmpImg2, op)
 }

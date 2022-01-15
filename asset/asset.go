@@ -46,16 +46,17 @@ func LoadSounds(ctx *audio.Context) {
 	SoundSelect = LoadWAV(ctx, "sound/select/select.wav")
 	SoundSelect.SetVolume(0.6)
 
+	const popVolume = 0.2
 	SoundPop1 = LoadWAV(ctx, "sound/pop/pop1.wav")
 	SoundPop2 = LoadWAV(ctx, "sound/pop/pop2.wav")
 	SoundPop3 = LoadWAV(ctx, "sound/pop/pop3.wav")
 	SoundPop4 = LoadWAV(ctx, "sound/pop/pop4.wav")
 	SoundPop5 = LoadWAV(ctx, "sound/pop/pop5.wav")
-	SoundPop1.SetVolume(0.2)
-	SoundPop2.SetVolume(0.2)
-	SoundPop3.SetVolume(0.2)
-	SoundPop4.SetVolume(0.2)
-	SoundPop5.SetVolume(0.2)
+	SoundPop1.SetVolume(popVolume)
+	SoundPop2.SetVolume(popVolume)
+	SoundPop3.SetVolume(popVolume)
+	SoundPop4.SetVolume(popVolume)
+	SoundPop5.SetVolume(popVolume)
 }
 
 func LoadImage(p string) *ebiten.Image {
