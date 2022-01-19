@@ -3,6 +3,7 @@ package system
 import (
 	"image"
 	"image/color"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 
@@ -95,29 +96,35 @@ func (s *RenderHudSystem) drawSidebar() {
 		x, y := (i%columns)*buttonWidth, row*buttonHeight
 		r := image.Rect(x+paddingSize, y+paddingSize, x+buttonWidth-paddingSize, y+buttonHeight-paddingSize)
 
-		selected := world.World.HoverStructure == button.StructureType
+		if button != nil {
+			selected := world.World.HoverStructure == button.StructureType
+			if button.StructureType == world.StructureToggleTransparentStructures {
+				selected = world.World.TransparentStructures
+			}
 
-		// Draw background.
-		s.drawButtonBackground(s.tmpImg, r, selected)
+			// Draw background.
+			s.drawButtonBackground(s.tmpImg, r, selected)
 
-		// Draw sprite.
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Translate(float64(x+paddingSize)+button.SpriteOffsetX, float64(y+paddingSize)+button.SpriteOffsetY)
-		s.tmpImg.SubImage(image.Rect(r.Min.X, r.Min.Y, r.Max.X, r.Max.Y)).(*ebiten.Image).DrawImage(button.Sprite, op)
+			// Draw sprite.
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Translate(float64(x+paddingSize)+button.SpriteOffsetX, float64(y+paddingSize)+button.SpriteOffsetY)
+			s.tmpImg.SubImage(image.Rect(r.Min.X, r.Min.Y, r.Max.X, r.Max.Y)).(*ebiten.Image).DrawImage(button.Sprite, op)
 
-		s.drawButtonBorder(s.tmpImg, r, selected)
+			s.drawButtonBorder(s.tmpImg, r, selected)
+		}
 
 		world.World.HUDButtonRects[i] = r
 		lastButtonY = y
 	}
 
-	s.drawDate(lastButtonY + buttonHeight + 5)
+	s.drawDate(lastButtonY + buttonHeight + 10)
+	s.drawFunds(lastButtonY + buttonHeight + 55)
 
 	// Draw RCI indicator.
 	rciPadding := buttonWidth - 14
 	const rciSize = 100
 	rciX := buttonWidth
-	rciY := lastButtonY + buttonHeight + rciPadding
+	rciY := lastButtonY + buttonHeight + 55 + rciPadding
 
 	// Draw RCI bars.
 	colorR := color.RGBA{0, 255, 0, 255}
@@ -200,9 +207,11 @@ func (s *RenderHudSystem) drawTooltip() {
 		return
 	}
 
+	lines := 1 + strings.Count(label, "\n")
+
 	scale := 3.0
 	x, y := world.SidebarWidth, 0
-	w, h := (len(label)*6+10)*int(scale), 22*(int(scale))
+	w, h := (len(label)*6+10)*int(scale), 22*(int(scale))*lines
 	r := image.Rect(x, y, x+w, y+h)
 	s.hudImg.SubImage(r).(*ebiten.Image).Fill(color.RGBA{0, 0, 0, 120})
 
@@ -236,6 +245,20 @@ func (s *RenderHudSystem) drawDate(y int) {
 	s.tmpImg2.Clear()
 	ebitenutil.DebugPrint(s.tmpImg2, label)
 	op.GeoM.Reset()
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(float64(x), float64(y))
+	s.hudImg.DrawImage(s.tmpImg2, op)
+}
+
+func (s *RenderHudSystem) drawFunds(y int) {
+	label := world.World.Printer.Sprintf("$%d", world.World.Funds)
+
+	scale := 2.0
+	x, y := world.SidebarWidth/2-(len(label)*12)/2, y
+
+	s.tmpImg2.Clear()
+	ebitenutil.DebugPrint(s.tmpImg2, label)
+	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(scale, scale)
 	op.GeoM.Translate(float64(x), float64(y))
 	s.hudImg.DrawImage(s.tmpImg2, op)

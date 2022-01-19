@@ -4,9 +4,10 @@ go 1.17
 
 require (
 	code.rocketnine.space/tslocum/gohan v0.0.0-20220106015515-0231e09ad78e
-	github.com/hajimehoshi/ebiten/v2 v2.2.3
-	github.com/lafriks/go-tiled v0.6.0
+	github.com/hajimehoshi/ebiten/v2 v2.2.4
+	github.com/lafriks/go-tiled v0.7.0
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
+	golang.org/x/text v0.3.7
 )
 
 require (
@@ -15,8 +16,8 @@ require (
 	github.com/jezek/xgb v0.0.0-20210312150743-0e0f116e1240 // indirect
 	github.com/jfreymuth/oggvorbis v1.0.3 // indirect
 	github.com/jfreymuth/vorbis v1.0.2 // indirect
-	golang.org/x/exp v0.0.0-20220104160115-025e73f80486 // indirect
+	golang.org/x/exp v0.0.0-20220114162006-9d54fb35363c // indirect
 	golang.org/x/mobile v0.0.0-20220112015953-858099ff7816 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20220111092808-5a964db01320 // indirect
+	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
 )

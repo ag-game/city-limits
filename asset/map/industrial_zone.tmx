@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.5" tiledversion="1.7.2" orientation="isometric" renderorder="right-down" width="2" height="2" tilewidth="64" tileheight="32" infinite="0" nextlayerid="4" nextobjectid="1">
+ <tileset firstgid="1" source="../image/tileset/MRMO_BRIK.tsx"/>
+ <layer id="1" name="1" width="2" height="2">
+  <data encoding="csv">
+476,476,
+476,476
+</data>
+ </layer>
+</map>

@@ -9,6 +9,9 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
+
 	"code.rocketnine.space/tslocum/citylimits/asset"
 	"code.rocketnine.space/tslocum/citylimits/component"
 	. "code.rocketnine.space/tslocum/citylimits/ecs"
@@ -28,13 +31,7 @@ const TileSize = 64
 
 var DirtTile = uint32(9*32 + (0))
 
-const (
-	StructureBulldozer = iota + 1
-	StructureRoad
-	StructureHouse1
-	StructureBusiness1
-	StructurePoliceStation
-)
+const startingFunds = 10000
 
 const startingZoom = 1.0
 
@@ -61,6 +58,13 @@ var World = &GameWorld{
 	TileImages:     make(map[uint32]*ebiten.Image),
 	ResetGame:      true,
 	Level:          NewLevel(256),
+	Printer:        message.NewPrinter(language.English),
+}
+
+type Zone struct {
+	Type       int // StructureResidentialZone, StructureCommercialZone or StructureIndustrialZone
+	X, Y       int
+	Population int
 }
 
 type GameWorld struct {
@@ -132,9 +136,17 @@ type GameWorld struct {
 	HUDUpdated     bool
 	HUDButtonRects []image.Rectangle
 
+	Zones []*Zone
+
 	Ticks int
 
 	Paused bool
+
+	Funds int
+
+	Printer *message.Printer
+
+	TransparentStructures bool
 
 	resetTipShown bool
 }
@@ -150,6 +162,8 @@ func Reset() {
 	}
 	World.Player = 0
 
+	World.Funds = startingFunds
+
 	World.ObjectGroups = nil
 	World.HazardRects = nil
 	World.CreepRects = nil
@@ -162,28 +176,13 @@ func Reset() {
 }
 
 func LoadMap(structureType int) (*tiled.Map, error) {
-	loader := tiled.Loader{
-		FileSystem: asset.FS,
-	}
-
-	var filePath string
-	switch structureType {
-	case StructureBulldozer:
-		filePath = "map/bulldozer.tmx"
-	case StructureRoad:
-		filePath = "map/road.tmx"
-	case StructureHouse1:
-		filePath = "map/house1.tmx"
-	case StructureBusiness1:
-		filePath = "map/business1.tmx"
-	case StructurePoliceStation:
-		filePath = "map/policestation.tmx"
-	default:
+	filePath := StructureFilePaths[structureType]
+	if filePath == "" {
 		panic(fmt.Sprintf("unknown structure %d", structureType))
 	}
 
 	// Parse .tmx file.
-	m, err := loader.LoadFromFile(filepath.FromSlash(filePath))
+	m, err := tiled.LoadFile(filepath.FromSlash(filePath), tiled.WithFileSystem(asset.FS))
 	if err != nil {
 		log.Fatalf("error parsing world: %+v", err)
 	}
@@ -233,7 +232,7 @@ func DrawMap(structureType int) *ebiten.Image {
 }
 
 func LoadTileset() error {
-	m, err := LoadMap(StructureHouse1)
+	m, err := LoadMap(StructureResidentialLow)
 	if err != nil {
 		return err
 	}
@@ -270,9 +269,75 @@ func LoadTileset() error {
 }
 
 func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Structure, error) {
+	if structureType == StructureBulldozer && !hover {
+		// TODO bulldoze entire structure, remove from zones
+		var bulldozed bool
+		for i := range World.Level.Tiles {
+			if World.Level.Tiles[i][placeX][placeY].Sprite != nil {
+				World.Level.Tiles[i][placeX][placeY].Sprite = nil
+				bulldozed = true
+			}
+
+			var img *ebiten.Image
+			if i == 0 {
+				img = World.TileImages[DirtTile+World.TileImagesFirstGID]
+			}
+			if World.Level.Tiles[i][placeX][placeY].EnvironmentSprite != img {
+				World.Level.Tiles[i][placeX][placeY].EnvironmentSprite = img
+				bulldozed = true
+			}
+		}
+		if !bulldozed {
+			return nil, errors.New("nothing to bulldoze")
+		}
+		return nil, nil
+	}
+
+	initialType := structureType
+
+	// For previewing buildings
+	/*v := rand.Intn(3)
+	if structureType == StructureResidentialZone {
+		switch v {
+		case 0:
+			structureType = StructureResidentialLow
+		case 1:
+			structureType = StructureResidentialMedium
+		case 2:
+			structureType = StructureResidentialHigh
+		}
+	} else if structureType == StructureCommercialZone {
+		switch v {
+		case 0:
+			structureType = StructureCommercialLow
+		case 1:
+			structureType = StructureCommercialMedium
+		case 2:
+			structureType = StructureCommercialHigh
+		}
+	} else if structureType == StructureIndustrialZone {
+		switch v {
+		case 0:
+			structureType = StructureIndustrialLow
+		case 1:
+			structureType = StructureIndustrialMedium
+		case 2:
+			structureType = StructureIndustrialHigh
+		}
+	}*/
+
 	m, err := LoadMap(structureType)
 	if err != nil {
 		return nil, err
+	}
+
+	if m.Width != 1 || m.Height != 1 {
+		if placeX == 0 {
+			placeX = 1
+		}
+		if placeY == 0 {
+			placeY = 1
+		}
 	}
 
 	w := m.Width - 1
@@ -309,6 +374,10 @@ func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Str
 
 	// TODO Add entity
 
+	tileOccupied := func(tx int, ty int) bool {
+		return World.Level.Tiles[1][tx][ty].Sprite != nil || (World.Level.Tiles[0][tx][ty].Sprite != nil && (structureType != StructureRoad || World.Level.Tiles[0][tx][ty].Sprite != World.TileImages[World.TileImagesFirstGID]))
+	}
+
 	valid := true
 	var existingRoadTiles int
 VALIDBUILD:
@@ -318,7 +387,7 @@ VALIDBUILD:
 			if structureType == StructureRoad && World.Level.Tiles[0][tx][ty].Sprite == World.TileImages[World.TileImagesFirstGID] {
 				existingRoadTiles++
 			}
-			if World.Level.Tiles[1][tx][ty].Sprite != nil || (World.Level.Tiles[0][tx][ty].Sprite != nil && (structureType != StructureRoad || World.Level.Tiles[0][tx][ty].Sprite != World.TileImages[World.TileImagesFirstGID])) {
+			if tileOccupied(tx, ty) && structureType != StructureBulldozer {
 				valid = false
 				break VALIDBUILD
 			}
@@ -328,19 +397,23 @@ VALIDBUILD:
 		valid = false
 	}
 	if hover {
-		World.HoverValid = valid
+		if structureType == StructureBulldozer {
+			World.HoverValid = true
+		} else {
+			World.HoverValid = valid
+		}
 	} else if !valid {
 		return nil, errors.New("invalid location: space already occupied")
 	}
-
-	World.Level.ClearHoverSprites()
 
 	for y := 0; y < m.Height; y++ {
 		for x := 0; x < m.Width; x++ {
 			tx, ty := (x+placeX)-w, (y+placeY)-h
 			if hover {
-				World.Level.Tiles[0][tx][ty].HoverSprite = World.TileImages[World.TileImagesFirstGID]
-				if valid {
+				if !tileOccupied(tx, ty) || structureType == StructureBulldozer {
+					if structureType != StructureBulldozer {
+						World.Level.Tiles[0][tx][ty].HoverSprite = World.TileImages[World.TileImagesFirstGID]
+					}
 					// Hide environment sprites temporarily.
 					for i := 1; i < len(World.Level.Tiles); i++ {
 						World.Level.Tiles[i][tx][ty].HoverSprite = asset.ImgBlank
@@ -379,7 +452,9 @@ VALIDBUILD:
 
 				tx, ty := (x+placeX)-w, (y+placeY)-h
 				if hover {
-					World.Level.Tiles[layerNum][tx][ty].HoverSprite = World.TileImages[t.Tileset.FirstGID+t.ID]
+					if !tileOccupied(tx, ty) || structureType == StructureBulldozer {
+						World.Level.Tiles[layerNum][tx][ty].HoverSprite = World.TileImages[t.Tileset.FirstGID+t.ID]
+					}
 				} else {
 					World.Level.Tiles[layerNum][tx][ty].Sprite = World.TileImages[t.Tileset.FirstGID+t.ID]
 				}
@@ -387,6 +462,16 @@ VALIDBUILD:
 				// TODO handle flipping
 			}
 		}
+	}
+
+	isZone := initialType == StructureResidentialZone || initialType == StructureCommercialZone || initialType == StructureIndustrialZone
+	if !hover && isZone {
+		zone := &Zone{
+			Type: initialType,
+			X:    placeX,
+			Y:    placeY,
+		}
+		World.Zones = append(World.Zones, zone)
 	}
 
 	return structure, nil
@@ -506,16 +591,34 @@ func Demand() (r, c, i float64) {
 	return r, c, i
 }
 
-var tooltips = map[int]string{
-	StructureBulldozer:     "Bulldoze",
-	StructureRoad:          "Road",
-	StructureHouse1:        "Residential",
-	StructureBusiness1:     "Commercial",
-	StructurePoliceStation: "Police station",
+var structureTooltips = map[int]string{
+	StructureToggleTransparentStructures: "Transparent buildings",
+	StructureBulldozer:                   "Bulldozer",
+	StructureRoad:                        "Road",
+	StructurePoliceStation:               "Police station",
+	StructurePowerPlantCoal:              "Coal power plant",
+	StructureResidentialZone:             "Residential zone",
+	StructureCommercialZone:              "Commercial zone",
+	StructureIndustrialZone:              "Industrial zone",
+}
+
+var StructureCosts = map[int]int{
+	StructureBulldozer:       5,
+	StructureRoad:            25,
+	StructurePoliceStation:   1000,
+	StructurePowerPlantCoal:  4000,
+	StructureResidentialZone: 100,
+	StructureCommercialZone:  200,
+	StructureIndustrialZone:  100,
 }
 
 func Tooltip() string {
-	return tooltips[World.HoverStructure]
+	tooltipText := structureTooltips[World.HoverStructure]
+	cost := StructureCosts[World.HoverStructure]
+	if cost > 0 {
+		tooltipText += World.Printer.Sprintf("\n$%d", cost)
+	}
+	return tooltipText
 }
 
 var monthNames = []string{

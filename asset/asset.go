@@ -46,7 +46,7 @@ func LoadSounds(ctx *audio.Context) {
 	SoundSelect = LoadWAV(ctx, "sound/select/select.wav")
 	SoundSelect.SetVolume(0.6)
 
-	const popVolume = 0.2
+	const popVolume = 0.15
 	SoundPop1 = LoadWAV(ctx, "sound/pop/pop1.wav")
 	SoundPop2 = LoadWAV(ctx, "sound/pop/pop2.wav")
 	SoundPop3 = LoadWAV(ctx, "sound/pop/pop3.wav")

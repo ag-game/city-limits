@@ -96,21 +96,20 @@ func (g *game) Update() error {
 
 		// Fill below ground layer.
 		grassTile := uint32(11*32 + (0))
-		treeTileA := uint32(5*32 + (25))
-		treeTileB := uint32(5*32 + (27))
-		treeTileA = treeTileB // todo
+		treeTileA := uint32(5*32 + (24))
+		treeTileB := uint32(5*32 + (25))
 		var img uint32
 		for x := range world.World.Level.Tiles[0] {
 			for y := range world.World.Level.Tiles[0][x] {
 				img = world.DirtTile
-				if rand.Intn(128) == 0 {
+				if rand.Intn(150) == 0 {
 					img = grassTile
 					world.World.Level.Tiles[0][x][y].EnvironmentSprite = world.World.TileImages[img+world.World.TileImagesFirstGID]
 					for offsetX := -2 - rand.Intn(7); offsetX < 2+rand.Intn(7); offsetX++ {
 						for offsetY := -2 - rand.Intn(7); offsetY < 2+rand.Intn(7); offsetY++ {
 							if x+offsetX >= 0 && y+offsetY >= 0 && x+offsetX < 256 && y+offsetY < 256 {
 								world.World.Level.Tiles[0][x+offsetX][y+offsetY].EnvironmentSprite = world.World.TileImages[img+world.World.TileImagesFirstGID]
-								if rand.Intn(2) == 0 {
+								if rand.Intn(4) == 0 {
 									if rand.Intn(3) == 0 {
 										world.World.Level.Tiles[1][x+offsetX][y+offsetY].EnvironmentSprite = world.World.TileImages[treeTileA+world.World.TileImagesFirstGID]
 									} else {
@@ -131,36 +130,56 @@ func (g *game) Update() error {
 
 		// Load HUD sprites.
 
+		transparentBuilding := world.DrawMap(world.StructureCommercialHigh)
+		transparentImg := ebiten.NewImage(transparentBuilding.Bounds().Dx(), transparentBuilding.Bounds().Dy())
+		op := &ebiten.DrawImageOptions{}
+		op.ColorM.Scale(1, 1, 1, 0.4)
+		transparentImg.DrawImage(transparentBuilding, op)
 		world.HUDButtons = []*world.HUDButton{
 			{
-				Label:         "Bulldoze",
+				StructureType: world.StructureBulldozer,
 				Sprite:        world.DrawMap(world.StructureBulldozer),
 				SpriteOffsetX: 12,
 				SpriteOffsetY: -48,
-				StructureType: world.StructureBulldozer,
 			}, {
-				Label:         "Road",
+				StructureType: world.StructureRoad,
 				Sprite:        world.DrawMap(world.StructureRoad),
 				SpriteOffsetX: -12,
 				SpriteOffsetY: -28,
-				StructureType: world.StructureRoad,
 			}, {
-				Label:         "House",
-				Sprite:        world.DrawMap(world.StructureHouse1),
+				StructureType: world.StructureResidentialZone,
+				Sprite:        world.DrawMap(world.StructureResidentialLow),
 				SpriteOffsetX: -12,
 				SpriteOffsetY: -28,
-				StructureType: world.StructureHouse1,
 			}, {
-				Label:         "Business",
-				Sprite:        world.DrawMap(world.StructureBusiness1),
+				StructureType: world.StructureCommercialZone,
+				Sprite:        world.DrawMap(world.StructureCommercialLow),
 				SpriteOffsetX: -10,
 				SpriteOffsetY: -28,
-				StructureType: world.StructureBusiness1,
 			}, {
-				Label:         "Police Station",
-				SpriteOffsetX: -19,
-				Sprite:        world.DrawMap(world.StructurePoliceStation),
+				StructureType: world.StructureIndustrialZone,
+				Sprite:        world.DrawMap(world.StructureIndustrialLow),
+				SpriteOffsetX: -10,
+				SpriteOffsetY: -28,
+			}, {
+				StructureType: world.StructurePowerPlantCoal,
+				SpriteOffsetX: -20,
+				SpriteOffsetY: 2,
+				Sprite:        world.DrawMap(world.StructurePowerPlantCoal),
+			}, {
 				StructureType: world.StructurePoliceStation,
+				SpriteOffsetX: -19,
+				SpriteOffsetY: -4,
+				Sprite:        world.DrawMap(world.StructurePoliceStation),
+			},
+			nil,
+			nil,
+			nil,
+			{
+				StructureType: world.StructureToggleTransparentStructures,
+				Sprite:        transparentImg,
+				SpriteOffsetX: -12,
+				SpriteOffsetY: 0,
 			},
 		}
 
@@ -272,10 +291,9 @@ func (g *game) Draw(screen *ebiten.Image) {
 					}
 				} else if tile.Sprite != nil {
 					sprite = tile.Sprite
-					// TODO
-					/*if i > 0 && world.World.HoverStructure == world.StructureRoad {
-						alpha = 0.6
-					}*/
+					if world.World.TransparentStructures && i > 1 {
+						alpha = 0.2
+					}
 				} else if tile.EnvironmentSprite != nil {
 					sprite = tile.EnvironmentSprite
 				} else {
@@ -299,6 +317,7 @@ func (g *game) addSystems() {
 	// Simulation systems.
 	ecs.AddSystem(system.NewTickSystem())
 	ecs.AddSystem(system.NewPowerScanSystem())
+	ecs.AddSystem(system.NewPopulateSystem())
 
 	// Input systems.
 	g.movementSystem = system.NewMovementSystem()

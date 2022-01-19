@@ -1,6 +1,7 @@
 package system
 
 import (
+	"log"
 	"math/rand"
 	"os"
 
@@ -188,15 +189,21 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 
 	if x < world.SidebarWidth {
 		world.World.Level.ClearHoverSprites()
+
 		world.World.HoverX, world.World.HoverY = 0, 0
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 			button := world.HUDButtonAt(x, y)
 			if button != nil {
 				if button.StructureType != 0 {
-					if world.World.HoverStructure == button.StructureType {
-						world.SetHoverStructure(0) // Deselect.
+					if button.StructureType == world.StructureToggleTransparentStructures {
+						world.World.TransparentStructures = !world.World.TransparentStructures
+						world.World.HUDUpdated = true
 					} else {
-						world.SetHoverStructure(button.StructureType)
+						if world.World.HoverStructure == button.StructureType {
+							world.SetHoverStructure(0) // Deselect.
+						} else {
+							world.SetHoverStructure(button.StructureType)
+						}
 					}
 					asset.SoundSelect.Rewind()
 					asset.SoundSelect.Play()
@@ -208,33 +215,33 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 		if tileX >= 0 && tileY >= 0 && tileX < 256 && tileY < 256 {
 			multiUseStructure := world.World.HoverStructure == world.StructureBulldozer || world.World.HoverStructure == world.StructureRoad
 			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || (multiUseStructure && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)) {
-				if world.World.HoverStructure == world.StructureBulldozer {
-					for i := range world.World.Level.Tiles {
-						world.World.Level.Tiles[i][int(tileX)][int(tileY)].Sprite = nil
-
-						var img *ebiten.Image
-						if i == 0 {
-							img = world.World.TileImages[world.DirtTile+world.World.TileImagesFirstGID]
-						}
-						world.World.Level.Tiles[i][int(tileX)][int(tileY)].EnvironmentSprite = img
-					}
+				cost := world.StructureCosts[world.World.HoverStructure]
+				if world.World.Funds < cost {
+					// TODO
+					log.Println("NOT ENOUGH FUNDS")
 				} else {
+					world.World.Level.ClearHoverSprites()
+
 					_, err := world.BuildStructure(world.World.HoverStructure, false, int(tileX), int(tileY))
 					if err == nil {
-						sounds := []*audio.Player{
-							asset.SoundPop1,
-							asset.SoundPop2,
-							asset.SoundPop3,
-							asset.SoundPop4,
-							asset.SoundPop5,
+						if world.World.HoverStructure != world.StructureBulldozer {
+							sounds := []*audio.Player{
+								asset.SoundPop2,
+								asset.SoundPop3,
+							}
+							sound := sounds[rand.Intn(len(sounds))]
+							sound.Rewind()
+							sound.Play()
 						}
-						sound := sounds[rand.Intn(len(sounds))]
-						sound.Rewind()
-						sound.Play()
+						world.World.Funds -= cost
+
+						world.World.HUDUpdated = true
 					}
+					world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))
 				}
-				world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))
 			} else if int(tileX) != world.World.HoverX || int(tileY) != world.World.HoverY {
+				world.World.Level.ClearHoverSprites()
+
 				world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))
 			}
 			world.World.HoverX, world.World.HoverY = int(tileX), int(tileY)
