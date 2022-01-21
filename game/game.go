@@ -300,6 +300,11 @@ func (g *game) Draw(screen *ebiten.Image) {
 					continue
 				}
 				drawn += g.renderSprite(float64(x), float64(y), 0, float64(i*-40), 0, 1, colorScale, alpha, false, false, sprite, screen)
+
+				// Draw power-outs.
+				if world.World.Ticks%(144*2) < int(144.0*1.5) && world.World.PowerOuts[x][y] {
+					drawn += g.renderSprite(float64(x), float64(y), 0, -52, 0, 1, 1, 1, false, false, asset.ImgPower, screen)
+				}
 			}
 		}
 	}
@@ -331,7 +336,6 @@ func (g *game) addSystems() {
 	g.renderSystem = system.NewRenderSystem()
 	ecs.AddSystem(g.renderSystem)
 	ecs.AddSystem(system.NewRenderHudSystem())
-	ecs.AddSystem(system.NewRenderMessageSystem())
 	ecs.AddSystem(system.NewRenderDebugTextSystem(world.World.Player))
 	ecs.AddSystem(system.NewProfileSystem(world.World.Player))
 }

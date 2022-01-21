@@ -33,6 +33,8 @@ func (s *PopulateSystem) Update(_ *gohan.Context) error {
 		return nil
 	}
 
+	const popDuration = 144 * 4
+
 	// Thresholds.
 	const (
 		lowDensity    = 3
@@ -42,6 +44,8 @@ func (s *PopulateSystem) Update(_ *gohan.Context) error {
 		switch structureType {
 		case world.StructureResidentialZone:
 			switch {
+			case population == 0:
+				return world.StructureResidentialZone
 			case population <= lowDensity:
 				return world.StructureResidentialLow
 			case population <= mediumDensity:
@@ -51,6 +55,8 @@ func (s *PopulateSystem) Update(_ *gohan.Context) error {
 			}
 		case world.StructureCommercialZone:
 			switch {
+			case population == 0:
+				return world.StructureCommercialZone
 			case population <= lowDensity:
 				return world.StructureCommercialLow
 			case population <= mediumDensity:
@@ -60,6 +66,8 @@ func (s *PopulateSystem) Update(_ *gohan.Context) error {
 			}
 		case world.StructureIndustrialZone:
 			switch {
+			case population == 0:
+				return world.StructureIndustrialZone
 			case population <= lowDensity:
 				return world.StructureIndustrialLow
 			case population <= mediumDensity:
@@ -73,12 +81,51 @@ func (s *PopulateSystem) Update(_ *gohan.Context) error {
 	}
 
 	const maxPopulation = 10
-	if world.World.Ticks%144 == 0 {
+	if world.World.Ticks%popDuration == 0 {
+		popR, popC, popI := world.Population()
+		targetR, targetC, targetI := world.TargetPopulation()
 		for _, zone := range world.World.Zones {
-			if zone.Population < maxPopulation {
+			var offset int
+			if zone.Type == world.StructureResidentialZone {
+				if popR < targetR {
+					offset = 1
+				} else if popR > targetR {
+					offset = -1
+				}
+			} else if zone.Type == world.StructureCommercialZone {
+				if popC < targetC {
+					offset = 1
+				} else if popC > targetC {
+					offset = -1
+				}
+			} else { // Industrial
+				if popI < targetI {
+					offset = 1
+				} else if popI > targetI {
+					offset = -1
+				}
+			}
+			if offset == -1 && zone.Population > 0 {
+				zone.Population--
+				if zone.Type == world.StructureResidentialZone {
+					popR--
+				} else if zone.Type == world.StructureCommercialZone {
+					popC--
+				} else { // Industrial
+					popI--
+				}
+			} else if offset == 1 && zone.Population < maxPopulation && zone.Powered {
 				zone.Population++
+				if zone.Type == world.StructureResidentialZone {
+					popR++
+				} else if zone.Type == world.StructureCommercialZone {
+					popC++
+				} else { // Industrial
+					popI++
+				}
 			}
 			newType := buildStructureType(zone.Type, zone.Population)
+			// TODO only bulldoze when changed
 			for offsetX := 0; offsetX < 2; offsetX++ {
 				for offsetY := 0; offsetY < 2; offsetY++ {
 					world.BuildStructure(world.StructureBulldozer, false, zone.X-offsetX, zone.Y-offsetY)

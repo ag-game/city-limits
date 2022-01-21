@@ -4,6 +4,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2/audio"
 
@@ -159,7 +160,7 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 	}
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonMiddle) {
 		if s.scrollDragX == -1 && s.scrollDragY == -1 {
-			// TODO disabled due to possible ebiten bug
+			// TODO Disabled due to possible ebiten bug.
 			//ebiten.SetCursorMode(ebiten.CursorModeCaptured)
 
 			s.scrollDragX, s.scrollDragY = x, y
@@ -186,6 +187,19 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 			}
 		}
 	}
+	// Clamp viewport.
+	minCam := -256.0 * world.TileSize / 2
+	maxCam := 256.0 * world.TileSize / 2
+	if world.World.CamX < minCam {
+		world.World.CamX = minCam
+	} else if world.World.CamX > maxCam {
+		world.World.CamX = maxCam
+	}
+	if world.World.CamY < 0 {
+		world.World.CamY = 0
+	} else if world.World.CamY > maxCam {
+		world.World.CamY = maxCam
+	}
 
 	if x < world.SidebarWidth {
 		world.World.Level.ClearHoverSprites()
@@ -198,6 +212,12 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 					if button.StructureType == world.StructureToggleTransparentStructures {
 						world.World.TransparentStructures = !world.World.TransparentStructures
 						world.World.HUDUpdated = true
+
+						if world.World.TransparentStructures {
+							world.ShowMessage("Enabled transparency", 3)
+						} else {
+							world.ShowMessage("Disabled transparency", 3)
+						}
 					} else {
 						if world.World.HoverStructure == button.StructureType {
 							world.SetHoverStructure(0) // Deselect.
@@ -222,8 +242,32 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 				} else {
 					world.World.Level.ClearHoverSprites()
 
-					_, err := world.BuildStructure(world.World.HoverStructure, false, int(tileX), int(tileY))
+					// TODO draw hovers and build all roads in a line from drag start
+
+					s, err := world.BuildStructure(world.World.HoverStructure, false, int(tileX), int(tileY))
 					if err == nil {
+						tileX, tileY = float64(s.X), float64(s.Y)
+
+						isPowerPlant := world.World.HoverStructure == world.StructurePowerPlantCoal
+						if isPowerPlant {
+							plant := &world.PowerPlant{
+								Type: world.World.HoverStructure,
+								X:    int(tileX),
+								Y:    int(tileY),
+							}
+							world.World.PowerPlants = append(world.World.PowerPlants, plant)
+						}
+
+						isZone := world.World.HoverStructure == world.StructureResidentialZone || world.World.HoverStructure == world.StructureCommercialZone || world.World.HoverStructure == world.StructureIndustrialZone
+						if isZone {
+							zone := &world.Zone{
+								Type: world.World.HoverStructure,
+								X:    int(tileX),
+								Y:    int(tileY),
+							}
+							world.World.Zones = append(world.World.Zones, zone)
+						}
+
 						if world.World.HoverStructure != world.StructureBulldozer {
 							sounds := []*audio.Player{
 								asset.SoundPop2,
@@ -234,6 +278,16 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 							sound.Play()
 						}
 						world.World.Funds -= cost
+
+						if world.World.HoverStructure == world.StructureResidentialZone {
+							world.ShowMessage(world.World.Printer.Sprintf("Zoned area for residential use (-$%d)", cost), 3)
+						} else if world.World.HoverStructure == world.StructureCommercialZone {
+							world.ShowMessage(world.World.Printer.Sprintf("Zoned area for commercial use (-$%d)", cost), 3)
+						} else if world.World.HoverStructure == world.StructureIndustrialZone {
+							world.ShowMessage(world.World.Printer.Sprintf("Zoned area for industrial use (-$%d)", cost), 3)
+						} else {
+							world.ShowMessage(world.World.Printer.Sprintf("Built %s (-$%d)", strings.ToLower(world.StructureTooltips[world.World.HoverStructure]), cost), 3)
+						}
 
 						world.World.HUDUpdated = true
 					}

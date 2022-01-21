@@ -38,6 +38,9 @@ func (s *TickSystem) Update(_ *gohan.Context) error {
 	if world.World.Ticks%world.MonthTicks == 0 {
 		world.World.HUDUpdated = true
 	}
+	if world.World.Ticks%144 == 0 {
+		world.TickMessages()
+	}
 	return nil
 }
 

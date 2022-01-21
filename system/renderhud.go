@@ -56,6 +56,7 @@ func (s *RenderHudSystem) Draw(_ *gohan.Context, screen *ebiten.Image) error {
 	if world.World.HUDUpdated {
 		s.hudImg.Clear()
 		s.drawSidebar()
+		s.drawMessages()
 		s.drawTooltip()
 		world.World.HUDUpdated = false
 	}
@@ -67,7 +68,7 @@ func (s *RenderHudSystem) drawSidebar() {
 	bounds := s.hudImg.Bounds()
 	if bounds.Dx() != world.World.ScreenW || bounds.Dy() != world.World.ScreenH {
 		s.hudImg = ebiten.NewImage(world.World.ScreenW, world.World.ScreenH)
-		s.tmpImg = ebiten.NewImage(world.SidebarWidth, world.World.ScreenH)
+		s.tmpImg = ebiten.NewImage(world.World.ScreenW, world.World.ScreenH)
 		s.tmpImg2 = ebiten.NewImage(world.SidebarWidth, world.World.ScreenH)
 	} else {
 		s.hudImg.Clear()
@@ -126,6 +127,8 @@ func (s *RenderHudSystem) drawSidebar() {
 	rciX := buttonWidth
 	rciY := lastButtonY + buttonHeight + 55 + rciPadding
 
+	const rciButtonHeight = 20
+
 	// Draw RCI bars.
 	colorR := color.RGBA{0, 255, 0, 255}
 	colorC := color.RGBA{0, 0, 255, 255}
@@ -136,8 +139,14 @@ func (s *RenderHudSystem) drawSidebar() {
 		barOffset := -barOffsetSize + (i * barOffsetSize)
 		barWidth := 7
 		barX := rciX + buttonWidth/2 - barWidth/2 + barOffset
+		barY := rciY + (rciSize / 2)
+		if demand < 0 {
+			barY += rciButtonHeight / 2
+		} else {
+			barY -= rciButtonHeight / 2
+		}
 		barHeight := int((float64(rciSize) / 2) * demand)
-		s.tmpImg.SubImage(image.Rect(barX, rciY+(rciSize/2), barX+barWidth, rciY+(rciSize/2)-barHeight)).(*ebiten.Image).Fill(clr)
+		s.tmpImg.SubImage(image.Rect(barX, barY, barX+barWidth, barY-barHeight)).(*ebiten.Image).Fill(clr)
 	}
 	drawDemandBar(demandR, colorR, 0)
 	drawDemandBar(demandC, colorC, 1)
@@ -145,7 +154,6 @@ func (s *RenderHudSystem) drawSidebar() {
 
 	// Draw RCI button.
 	const rciButtonPadding = 12
-	const rciButtonHeight = 20
 	const rciButtonLabelPaddingX = 6
 	const rciButtonLabelPaddingY = 1
 	rciButtonY := rciY + (rciSize / 2) - (rciButtonHeight / 2)
@@ -208,10 +216,11 @@ func (s *RenderHudSystem) drawTooltip() {
 	}
 
 	lines := 1 + strings.Count(label, "\n")
+	max := maxLen(strings.Split(label, "\n"))
 
 	scale := 3.0
 	x, y := world.SidebarWidth, 0
-	w, h := (len(label)*6+10)*int(scale), 22*(int(scale))*lines
+	w, h := (max*6+10)*int(scale), 16*(int(scale))*lines+10
 	r := image.Rect(x, y, x+w, y+h)
 	s.hudImg.SubImage(r).(*ebiten.Image).Fill(color.RGBA{0, 0, 0, 120})
 
@@ -219,7 +228,55 @@ func (s *RenderHudSystem) drawTooltip() {
 	ebitenutil.DebugPrint(s.tmpImg, label)
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(scale, scale)
-	op.GeoM.Translate(world.SidebarWidth+(4*scale), 4)
+	op.GeoM.Translate(world.SidebarWidth+(4*scale), 2)
+	s.hudImg.DrawImage(s.tmpImg, op)
+}
+
+func maxLen(v []string) int {
+	max := 0
+	for _, line := range v {
+		l := len(line)
+		if l > max {
+			max = l
+		}
+	}
+	return max
+}
+
+func (s *RenderHudSystem) drawMessages() {
+	lines := len(world.World.Messages)
+	if lines == 0 {
+		return
+	}
+	/*var label string
+	max := maxLen(world.World.Messages)
+	for i := lines - 1; i >= 0; i-- {
+		if i != lines-1 {
+			label += "\n"
+		}
+		for j := max - len(world.World.Messages[i]); j > 0; j-- {
+			label += " "
+		}
+		label += world.World.Messages[i]
+	}*/
+
+	label := world.World.Messages[len(world.World.Messages)-1]
+	max := len(label)
+	lines = 1
+
+	const padding = 12
+
+	scale := 2.0
+	w, h := (max*6+10)*int(scale), 16*(int(scale))*lines+6
+	x, y := world.World.ScreenW-w, 0
+	r := image.Rect(x, y, x+w, y+h)
+	s.hudImg.SubImage(r).(*ebiten.Image).Fill(color.RGBA{0, 0, 0, 120})
+
+	s.tmpImg.Clear()
+	ebitenutil.DebugPrint(s.tmpImg, label)
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(scale, scale)
+	op.GeoM.Translate(float64(x)+padding, 0)
 	s.hudImg.DrawImage(s.tmpImg, op)
 }
 

@@ -19,19 +19,21 @@ const sampleRate = 44100
 //go:embed image map sound
 var FS embed.FS
 
-var ImgWhiteSquare = ebiten.NewImage(64, 64)
-var ImgBlackSquare = ebiten.NewImage(64, 64)
-var ImgBlank = ebiten.NewImage(1, 1)
-
-var SoundMusic *audio.Player
-var SoundSelect *audio.Player
+var (
+	ImgBlank       = ebiten.NewImage(1, 1)
+	ImgWhiteSquare = ebiten.NewImage(64, 64)
+	ImgBlackSquare = ebiten.NewImage(64, 64)
+	ImgPower       = LoadImage("image/power.png")
+)
 
 var (
-	SoundPop1 *audio.Player
-	SoundPop2 *audio.Player
-	SoundPop3 *audio.Player
-	SoundPop4 *audio.Player
-	SoundPop5 *audio.Player
+	SoundMusic  *audio.Player
+	SoundSelect *audio.Player
+	SoundPop1   *audio.Player
+	SoundPop2   *audio.Player
+	SoundPop3   *audio.Player
+	SoundPop4   *audio.Player
+	SoundPop5   *audio.Player
 )
 
 func init() {

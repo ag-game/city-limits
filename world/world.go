@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"image"
 	"log"
+	"math"
 	"math/rand"
 	"path/filepath"
 	"strconv"
+	"sync"
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -21,6 +23,8 @@ import (
 )
 
 const startingYear = 1950
+
+const maxPopulation = 100000
 
 const (
 	MonthTicks = 144 * 3
@@ -59,12 +63,20 @@ var World = &GameWorld{
 	ResetGame:      true,
 	Level:          NewLevel(256),
 	Printer:        message.NewPrinter(language.English),
+	Power:          newPowerMap(),
+	PowerOuts:      newPowerOuts(),
 }
 
 type Zone struct {
 	Type       int // StructureResidentialZone, StructureCommercialZone or StructureIndustrialZone
 	X, Y       int
 	Population int
+	Powered    bool
+}
+
+type PowerPlant struct {
+	Type int
+	X, Y int
 }
 
 type GameWorld struct {
@@ -82,12 +94,6 @@ type GameWorld struct {
 	GameStarted      bool
 	GameStartedTicks int
 	GameOver         bool
-
-	MessageVisible  bool
-	MessageTicks    int
-	MessageDuration int
-	MessageUpdated  bool
-	MessageText     string
 
 	PlayerX, PlayerY float64
 
@@ -136,7 +142,10 @@ type GameWorld struct {
 	HUDUpdated     bool
 	HUDButtonRects []image.Rectangle
 
-	Zones []*Zone
+	PowerPlants []*PowerPlant
+	Zones       []*Zone
+
+	PowerOuts [][]bool
 
 	Ticks int
 
@@ -147,6 +156,14 @@ type GameWorld struct {
 	Printer *message.Printer
 
 	TransparentStructures bool
+
+	Messages      []string
+	MessagesTicks []int
+
+	Power          PowerMap
+	PowerUpdated   bool
+	PowerAvailable int
+	PowerNeeded    int
 
 	resetTipShown bool
 }
@@ -171,8 +188,6 @@ func Reset() {
 	World.TriggerEntities = nil
 	World.TriggerRects = nil
 	World.TriggerNames = nil
-
-	World.MessageVisible = false
 }
 
 func LoadMap(structureType int) (*tiled.Map, error) {
@@ -269,32 +284,6 @@ func LoadTileset() error {
 }
 
 func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Structure, error) {
-	if structureType == StructureBulldozer && !hover {
-		// TODO bulldoze entire structure, remove from zones
-		var bulldozed bool
-		for i := range World.Level.Tiles {
-			if World.Level.Tiles[i][placeX][placeY].Sprite != nil {
-				World.Level.Tiles[i][placeX][placeY].Sprite = nil
-				bulldozed = true
-			}
-
-			var img *ebiten.Image
-			if i == 0 {
-				img = World.TileImages[DirtTile+World.TileImagesFirstGID]
-			}
-			if World.Level.Tiles[i][placeX][placeY].EnvironmentSprite != img {
-				World.Level.Tiles[i][placeX][placeY].EnvironmentSprite = img
-				bulldozed = true
-			}
-		}
-		if !bulldozed {
-			return nil, errors.New("nothing to bulldoze")
-		}
-		return nil, nil
-	}
-
-	initialType := structureType
-
 	// For previewing buildings
 	/*v := rand.Intn(3)
 	if structureType == StructureResidentialZone {
@@ -343,8 +332,39 @@ func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Str
 	w := m.Width - 1
 	h := m.Height - 1
 
-	if placeX-w < 0 || placeY-h < 0 || placeX > 256 || placeY > 256 {
+	if placeX-w < 0 || placeY-h < 0 || placeX >= 256 || placeY >= 256 {
 		return nil, errors.New("invalid location: building does not fit")
+	}
+
+	structure := &Structure{
+		Type: structureType,
+		X:    placeX,
+		Y:    placeY,
+	}
+
+	if structureType == StructureBulldozer && !hover {
+		// TODO bulldoze entire structure, remove from zones
+		var bulldozed bool
+		for i := range World.Level.Tiles {
+			if World.Level.Tiles[i][placeX][placeY].Sprite != nil {
+				World.Level.Tiles[i][placeX][placeY].Sprite = nil
+				bulldozed = true
+			}
+
+			var img *ebiten.Image
+			if i == 0 {
+				img = World.TileImages[DirtTile+World.TileImagesFirstGID]
+			}
+			if World.Level.Tiles[i][placeX][placeY].EnvironmentSprite != img {
+				World.Level.Tiles[i][placeX][placeY].EnvironmentSprite = img
+				bulldozed = true
+			}
+		}
+		if !bulldozed {
+			return nil, errors.New("nothing to bulldoze")
+		}
+		World.Power.SetTile(placeX, placeY, false)
+		return structure, nil
 	}
 
 	createTileEntity := func(t *tiled.LayerTile, x float64, y float64) gohan.Entity {
@@ -365,12 +385,6 @@ func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Str
 		return mapTile
 	}
 	_ = createTileEntity
-
-	structure := &Structure{
-		Type: structureType,
-		X:    placeX,
-		Y:    placeY,
-	}
 
 	// TODO Add entity
 
@@ -457,21 +471,16 @@ VALIDBUILD:
 					}
 				} else {
 					World.Level.Tiles[layerNum][tx][ty].Sprite = World.TileImages[t.Tileset.FirstGID+t.ID]
+
+					if structureType == StructureRoad {
+						World.Power.SetTile(tx, ty, true)
+					}
+					World.PowerUpdated = true
 				}
 
 				// TODO handle flipping
 			}
 		}
-	}
-
-	isZone := initialType == StructureResidentialZone || initialType == StructureCommercialZone || initialType == StructureIndustrialZone
-	if !hover && isZone {
-		zone := &Zone{
-			Type: initialType,
-			X:    placeX,
-			Y:    placeY,
-		}
-		World.Zones = append(World.Zones, zone)
 	}
 
 	return structure, nil
@@ -528,14 +537,6 @@ func StartGame() {
 	}
 }
 
-func SetMessage(message string, duration int) {
-	World.MessageText = message
-	World.MessageVisible = true
-	World.MessageUpdated = true
-	World.MessageDuration = duration
-	World.MessageTicks = 0
-}
-
 // CartesianToIso transforms cartesian coordinates into isometric coordinates.
 func CartesianToIso(x, y float64) (float64, float64) {
 	ix := (x - y) * float64(TileSize/2)
@@ -584,14 +585,46 @@ func SetHoverStructure(structureType int) {
 	World.HUDUpdated = true
 }
 
-func Demand() (r, c, i float64) {
-	r = (rand.Float64() * 2) - 1
-	c = (rand.Float64() * 2) - 1
-	i = (rand.Float64() * 2) - 1
-	return r, c, i
+func Satisfaction() (r, c, i float64) {
+	return 0.01, 0.0, 0.02
 }
 
-var structureTooltips = map[int]string{
+func TargetPopulation() (r, c, i int) {
+	currentMax := maxPopulation * ((1 + float64(World.Ticks/(MonthTicks*7))) / 108)
+
+	satisfactionR, satisfactionC, satisfactionI := Satisfaction()
+	return int(satisfactionR * currentMax), int(satisfactionC * currentMax), int(satisfactionI * currentMax)
+}
+
+func Demand() (r, c, i float64) {
+	targetR, targetC, targetI := TargetPopulation()
+
+	populationR, populationC, populationI := Population()
+	r, c, i = float64(targetR)-float64(populationR), float64(targetC)-float64(populationC), float64(targetI)-float64(populationI)
+	max := r
+	if c > max {
+		max = c
+	}
+	if i > max {
+		max = i
+	}
+	barPeak := 100.0
+	r, c, i = r/barPeak, c/barPeak, i/barPeak
+	clamp := func(v float64) float64 {
+		if math.IsNaN(v) {
+			return 0
+		}
+		if v < -1 {
+			v = -1
+		} else if v > 1 {
+			v = 1
+		}
+		return v
+	}
+	return clamp(r), clamp(c), clamp(i)
+}
+
+var StructureTooltips = map[int]string{
 	StructureToggleTransparentStructures: "Transparent buildings",
 	StructureBulldozer:                   "Bulldozer",
 	StructureRoad:                        "Road",
@@ -613,7 +646,7 @@ var StructureCosts = map[int]int{
 }
 
 func Tooltip() string {
-	tooltipText := structureTooltips[World.HoverStructure]
+	tooltipText := StructureTooltips[World.HoverStructure]
 	cost := StructureCosts[World.HoverStructure]
 	if cost > 0 {
 		tooltipText += World.Printer.Sprintf("\n$%d", cost)
@@ -639,4 +672,65 @@ var monthNames = []string{
 func Date() (month string, year string) {
 	y, m := World.Ticks/YearTicks, (World.Ticks%YearTicks)/MonthTicks
 	return monthNames[m], strconv.Itoa(startingYear + y)
+}
+
+func Population() (r, c, i int) {
+	for _, zone := range World.Zones {
+		switch zone.Type {
+		case StructureResidentialZone:
+			r += zone.Population
+		case StructureCommercialZone:
+			c += zone.Population
+		case StructureIndustrialZone:
+			i += zone.Population
+		}
+	}
+	return r, c, i
+}
+
+var messageLock = &sync.Mutex{}
+
+const messageDuration = 144 * 3
+
+func TickMessages() {
+	messageLock.Lock()
+	defer messageLock.Unlock()
+
+	var removed int
+	for j := 0; j < len(World.MessagesTicks); j++ {
+		i := j - removed
+		if World.MessagesTicks[i] == 0 {
+			World.Messages = append(World.Messages[:i], World.Messages[i+1:]...)
+			World.MessagesTicks = append(World.MessagesTicks[:i], World.MessagesTicks[i+1:]...)
+			removed++
+
+			World.HUDUpdated = true
+		} else if World.MessagesTicks[i] > 0 {
+			World.MessagesTicks[i]--
+		}
+	}
+}
+
+func ShowMessage(message string, duration int) {
+	messageLock.Lock()
+	defer messageLock.Unlock()
+
+	World.Messages = append(World.Messages, message)
+	World.MessagesTicks = append(World.MessagesTicks, duration)
+
+	World.HUDUpdated = true
+}
+
+func ValidXY(x, y int) bool {
+	return x >= 0 && y >= 0 && x < 256 && y < 256
+}
+
+var PowerPlantCapacities = map[int]int{
+	StructurePowerPlantCoal: 60,
+}
+
+var ZonePowerRequirement = map[int]int{
+	StructureResidentialZone: 1,
+	StructureCommercialZone:  1,
+	StructureIndustrialZone:  1,
 }

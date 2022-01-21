@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	code.rocketnine.space/tslocum/gohan v0.0.0-20220106015515-0231e09ad78e
+	github.com/beefsack/go-astar v0.0.0-20200827232313-4ecf9e304482
 	github.com/hajimehoshi/ebiten/v2 v2.2.4
 	github.com/lafriks/go-tiled v0.7.0
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
