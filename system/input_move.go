@@ -1,6 +1,7 @@
 package system
 
 import (
+	"errors"
 	"math/rand"
 	"os"
 	"strings"
@@ -50,8 +51,16 @@ func (_ *playerMoveSystem) Uses() []gohan.ComponentID {
 }
 
 func (s *playerMoveSystem) buildStructure(structureType int, tileX int, tileY int, playSound bool) (*world.Structure, error) {
+	cost := world.StructureCosts[structureType]
+	if world.World.Funds < cost {
+		world.ShowMessage("Insufficient funds", 3)
+		return nil, errors.New("insufficient funds")
+	}
+
 	structure, err := world.BuildStructure(world.World.HoverStructure, false, tileX, tileY)
 	if err == nil {
+		world.World.LastBuildX, world.World.LastBuildY = tileX, tileY
+
 		if world.IsPowerPlant(world.World.HoverStructure) {
 			plant := &world.PowerPlant{
 				Type: world.World.HoverStructure,
@@ -351,8 +360,8 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 		if tileX >= 0 && tileY >= 0 && tileX < 256 && tileY < 256 {
 			multiUseStructure := world.World.HoverStructure == world.StructureBulldozer || world.World.HoverStructure == world.StructureRoad || world.IsZone(world.World.HoverStructure)
 			dragStarted := world.World.BuildDragX != -1 || world.World.BuildDragY != -1
-			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || (multiUseStructure && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)) || dragStarted {
-				if !dragStarted {
+			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || (multiUseStructure && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)) || (multiUseStructure && dragStarted) {
+				if !dragStarted && world.World.Funds >= world.StructureCosts[world.World.HoverStructure] {
 					world.World.BuildDragX, world.World.BuildDragY = int(tileX), int(tileY)
 
 					if world.World.HoverStructure == world.StructureBulldozer {
@@ -366,17 +375,22 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 					if dragStarted && !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 						// TODO build all tiles
 						world.World.Level.ClearHoverSprites()
-						var cost int
 						var builtRoad bool
-						for _, tile := range tiles {
-							_, err := s.buildStructure(world.World.HoverStructure, tile[0], tile[1], !builtRoad)
-							if err == nil {
-								cost += world.StructureCosts[world.World.HoverStructure]
-								builtRoad = true
+						cost := world.StructureCosts[world.World.HoverStructure] * len(tiles) / 2
+						if cost <= world.World.Funds {
+							cost = 0
+							for _, tile := range tiles {
+								_, err := s.buildStructure(world.World.HoverStructure, tile[0], tile[1], !builtRoad)
+								if err == nil {
+									cost += world.StructureCosts[world.World.HoverStructure]
+									builtRoad = true
+								}
 							}
-						}
-						if cost > 0 {
-							world.ShowBuildCost(world.World.HoverStructure, cost)
+							if cost > 0 {
+								world.ShowBuildCost(world.World.HoverStructure, cost)
+							}
+						} else {
+							world.ShowMessage("Insufficient funds", 3)
 						}
 
 						world.World.BuildDragX, world.World.BuildDragY = -1, -1
@@ -385,9 +399,13 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 						// TODO draw hover sprites
 						// TODO move below into shared func
 						world.World.Level.ClearHoverSprites()
+						world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))
+						var cost int
 						for _, tile := range tiles {
 							world.BuildStructure(world.World.HoverStructure, true, tile[0], tile[1])
+							cost += world.StructureCosts[world.World.HoverStructure]
 						}
+						world.World.HoverValid = cost <= world.World.Funds
 					}
 					return nil
 				} else if dragStarted && !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
@@ -406,15 +424,18 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 					if err == nil {
 						tileX, tileY = float64(structure.X), float64(structure.Y)
 						world.ShowBuildCost(world.World.HoverStructure, cost)
+						if !multiUseStructure {
+							world.World.HoverStructure = 0
+							world.World.BuildDragX, world.World.BuildDragY = -1, -1
+							world.World.LastBuildX, world.World.LastBuildY = -1, -1
+						}
 					}
 
-					world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))
+					if world.World.HoverStructure > 0 {
+						world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))
+					}
 				}
 			} else {
-				if world.World.LastBuildX != -1 || world.World.LastBuildY != -1 {
-					world.World.LastBuildX, world.World.LastBuildY = -1, -1
-				}
-
 				world.World.Level.ClearHoverSprites()
 
 				world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))

@@ -63,6 +63,12 @@ var HUDButtons []*HUDButton
 var CameraMinZoom = 0.1
 var CameraMaxZoom = 1.0
 
+const (
+	startingTaxR = 0.12
+	startingTaxC = 0.12
+	startingTaxI = 0.12
+)
+
 var World = &GameWorld{
 	CamScale:       startingZoom,
 	CamScaleTarget: startingZoom,
@@ -189,6 +195,10 @@ type GameWorld struct {
 
 	LastBuildX int
 	LastBuildY int
+
+	TaxR float64
+	TaxC float64
+	TaxI float64
 
 	resetTipShown bool
 }
@@ -604,7 +614,12 @@ func SetHoverStructure(structureType int) {
 }
 
 func Satisfaction() (r, c, i float64) {
-	return 0.01, 0.0, 0.02
+	popR, _, _ := Population()
+	c = float64(popR) / (maxPopulation / 2)
+	if c > 0.02 {
+		c = 0.02
+	}
+	return 0.02, c, 0.02
 }
 
 func TargetPopulation() (r, c, i int) {

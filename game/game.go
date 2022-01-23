@@ -192,7 +192,6 @@ func (g *game) Update() error {
 			nil,
 			nil,
 			nil,
-			nil,
 			{
 				StructureType: world.StructureToggleHelp,
 				Sprite:        asset.ImgHelp,
@@ -347,6 +346,7 @@ func (g *game) addSystems() {
 	ecs.AddSystem(system.NewTickSystem())
 	ecs.AddSystem(system.NewPowerScanSystem())
 	ecs.AddSystem(system.NewPopulateSystem())
+	ecs.AddSystem(system.NewTaxSystem())
 
 	// Input systems.
 	g.movementSystem = system.NewMovementSystem()

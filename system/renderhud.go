@@ -16,7 +16,7 @@ import (
 
 const (
 	helpW = 480
-	helpH = 185
+	helpH = 225
 )
 
 type RenderHudSystem struct {
@@ -114,8 +114,13 @@ func (s *RenderHudSystem) drawSidebar() {
 			s.drawButtonBackground(s.tmpImg, r, selected)
 
 			// Draw sprite.
+			colorScale := 1.0
+			if selected {
+				colorScale = 0.9
+			}
 			op := &ebiten.DrawImageOptions{}
 			op.GeoM.Translate(float64(x+paddingSize)+button.SpriteOffsetX, float64(y+paddingSize)+button.SpriteOffsetY)
+			op.ColorM.Scale(colorScale, colorScale, colorScale, 1)
 			s.tmpImg.SubImage(image.Rect(r.Min.X, r.Min.Y, r.Max.X, r.Max.Y)).(*ebiten.Image).DrawImage(button.Sprite, op)
 
 			s.drawButtonBorder(s.tmpImg, r, selected)
