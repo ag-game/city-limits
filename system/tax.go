@@ -37,15 +37,24 @@ func (s *TaxSystem) Update(_ *gohan.Context) error {
 		return nil
 	}
 
+	taxCollectionAmount := 777.77
 	for _, zone := range world.World.Zones {
-		if !zone.Powered {
+		if zone.Population == 0 {
 			continue
 		}
-		_ = zone
+
+		taxRate := world.World.TaxR
+		if zone.Type == world.StructureCommercialZone {
+			taxRate = world.World.TaxC
+		} else if zone.Type == world.StructureIndustrialZone {
+			taxRate = world.World.TaxI
+		}
+
+		world.World.Funds += int(taxCollectionAmount * taxRate)
 	}
 	return nil
 }
 
-func (s *TaxSystem) Draw(ctx *gohan.Context, screen *ebiten.Image) error {
+func (s *TaxSystem) Draw(_ *gohan.Context, _ *ebiten.Image) error {
 	return gohan.ErrSystemWithoutDraw
 }

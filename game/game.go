@@ -135,13 +135,14 @@ func (g *game) Update() error {
 				Sprite:        world.DrawMap(world.StructureBulldozer),
 				SpriteOffsetX: 12,
 				SpriteOffsetY: -48,
-			}, {
+			},
+			nil,
+			{
 				StructureType: world.StructureRoad,
 				Sprite:        world.DrawMap(world.StructureRoad),
 				SpriteOffsetX: -12,
 				SpriteOffsetY: -28,
 			},
-			nil,
 			{
 				StructureType: world.StructureResidentialZone,
 				Sprite:        world.DrawMap(world.StructureResidentialLow),

@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
+
 	"github.com/hajimehoshi/ebiten/v2/audio"
 
 	"golang.org/x/text/language"
@@ -31,7 +33,7 @@ const startingYear = 1950
 const maxPopulation = 100000
 
 const (
-	MonthTicks = 144 * 7
+	MonthTicks = 144 * 5
 	YearTicks  = MonthTicks * 12
 )
 
@@ -63,28 +65,33 @@ var HUDButtons []*HUDButton
 var CameraMinZoom = 0.1
 var CameraMaxZoom = 1.0
 
-const (
-	startingTaxR = 0.12
-	startingTaxC = 0.12
-	startingTaxI = 0.12
-)
+const startingTax = 0.12
 
 var World = &GameWorld{
 	CamScale:       startingZoom,
 	CamScaleTarget: startingZoom,
 	CamMoving:      true,
-	PlayerWidth:    8,
-	PlayerHeight:   32,
-	TileImages:     make(map[uint32]*ebiten.Image),
-	ResetGame:      true,
-	Level:          NewLevel(256),
-	Printer:        message.NewPrinter(language.English),
-	Power:          newPowerMap(),
-	PowerOuts:      newPowerOuts(),
-	BuildDragX:     -1,
-	BuildDragY:     -1,
-	LastBuildX:     -1,
-	LastBuildY:     -1,
+
+	PlayerWidth:  8,
+	PlayerHeight: 32,
+
+	TileImages: make(map[uint32]*ebiten.Image),
+	ResetGame:  true,
+	Level:      NewLevel(256),
+
+	Power:     newPowerMap(),
+	PowerOuts: newPowerOuts(),
+
+	TaxR: startingTax,
+	TaxC: startingTax,
+	TaxI: startingTax,
+
+	BuildDragX: -1,
+	BuildDragY: -1,
+	LastBuildX: -1,
+	LastBuildY: -1,
+
+	Printer: message.NewPrinter(language.English),
 }
 
 type Zone struct {
@@ -161,6 +168,10 @@ type GameWorld struct {
 
 	HUDUpdated     bool
 	HUDButtonRects []image.Rectangle
+
+	RCIButtonRect image.Rectangle
+	RCIWindowRect image.Rectangle
+	ShowRCIWindow bool
 
 	HelpUpdated     bool
 	HelpPage        int
@@ -608,6 +619,72 @@ func HelpButtonAt(x, y int) int {
 	return -1
 }
 
+func AltButtonAt(x, y int) int {
+	point := image.Point{x, y}
+	if point.In(World.RCIButtonRect) {
+		return 0
+	}
+	return -1
+}
+
+func HandleRCIWindowClick(x, y int) {
+	if !World.ShowRCIWindow {
+		return
+	}
+
+	if !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		return
+	}
+
+	point := image.Point{x, y}
+	if !point.In(World.RCIWindowRect) {
+		return
+	}
+
+	var updated bool
+	barRectR := image.Rect(World.RCIWindowRect.Min.X+381, World.RCIWindowRect.Min.Y, World.RCIWindowRect.Min.X+575, World.RCIWindowRect.Min.Y+50)
+	barRectC := image.Rect(World.RCIWindowRect.Min.X+381, World.RCIWindowRect.Min.Y+50, World.RCIWindowRect.Min.X+575, World.RCIWindowRect.Min.Y+100)
+	barRectI := image.Rect(World.RCIWindowRect.Min.X+381, World.RCIWindowRect.Min.Y+100, World.RCIWindowRect.Min.X+575, World.RCIWindowRect.Max.Y)
+	if point.In(barRectR) {
+		World.TaxR = float64(x-barRectR.Min.X) / float64(barRectR.Dx())
+		if World.TaxR >= .99 {
+			World.TaxR = 1.0
+		}
+		World.HUDUpdated = true
+		updated = true
+	} else if point.In(barRectC) {
+		World.TaxC = float64(x-barRectC.Min.X) / float64(barRectC.Dx())
+		if World.TaxC >= .99 {
+			World.TaxC = 1.0
+		}
+		World.HUDUpdated = true
+		updated = true
+	} else if point.In(barRectI) {
+		World.TaxI = float64(x-barRectI.Min.X) / float64(barRectI.Dx())
+		if World.TaxI >= .99 {
+			World.TaxI = 1.0
+		}
+		World.HUDUpdated = true
+		updated = true
+	}
+	if !updated {
+		return
+	}
+
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || World.Ticks%16 == 0 {
+		sounds := []*audio.Player{
+			asset.SoundPop1,
+			asset.SoundPop2,
+			asset.SoundPop3,
+			asset.SoundPop4,
+			asset.SoundPop5,
+		}
+		sound := sounds[rand.Intn(len(sounds))]
+		sound.Rewind()
+		sound.Play()
+	}
+}
+
 func SetHoverStructure(structureType int) {
 	World.HoverStructure = structureType
 	World.HUDUpdated = true
@@ -643,6 +720,7 @@ func Demand() (r, c, i float64) {
 	}
 	barPeak := 100.0
 	r, c, i = r/barPeak, c/barPeak, i/barPeak
+	r, c, i = r*(1-World.TaxR), c*(1-World.TaxC), i*(1-World.TaxI)
 	clamp := func(v float64) float64 {
 		if math.IsNaN(v) {
 			return 0

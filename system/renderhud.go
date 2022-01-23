@@ -1,9 +1,11 @@
 package system
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
+	"strconv"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -16,7 +18,7 @@ import (
 
 const (
 	helpW = 480
-	helpH = 225
+	helpH = 220
 )
 
 type RenderHudSystem struct {
@@ -37,7 +39,7 @@ func NewRenderHudSystem() *RenderHudSystem {
 		helpImg: ebiten.NewImage(helpW, helpH),
 	}
 
-	sidebarShade := uint8(111)
+	sidebarShade := uint8(108)
 	s.sidebarColor = color.RGBA{sidebarShade, sidebarShade, sidebarShade, 255}
 
 	return s
@@ -66,6 +68,7 @@ func (s *RenderHudSystem) Draw(_ *gohan.Context, screen *ebiten.Image) error {
 		s.drawSidebar()
 		s.drawMessages()
 		s.drawTooltip()
+		s.drawRCIWindow()
 		s.drawHelp()
 		world.World.HUDUpdated = false
 	}
@@ -261,12 +264,14 @@ func (s *RenderHudSystem) drawDemand(x, y int) {
 	rciButtonY := rciY + (rciSize / 2) - (rciButtonHeight / 2)
 	rciButtonRect := image.Rect(rciX+rciButtonPadding, rciButtonY, rciX+buttonWidth-rciButtonPadding, rciButtonY+rciButtonHeight)
 
-	s.drawButtonBackground(s.tmpImg, rciButtonRect, false) // TODO
+	s.drawButtonBackground(s.tmpImg, rciButtonRect, world.World.ShowRCIWindow)
 
 	// Draw label.
 	ebitenutil.DebugPrintAt(s.tmpImg, "R C I", rciX+rciButtonPadding+rciButtonLabelPaddingX, rciButtonY+rciButtonLabelPaddingY)
 
-	s.drawButtonBorder(s.tmpImg, rciButtonRect, false) // TODO
+	s.drawButtonBorder(s.tmpImg, rciButtonRect, world.World.ShowRCIWindow)
+
+	world.World.RCIButtonRect = rciButtonRect
 }
 
 func (s *RenderHudSystem) drawPower(x, y int) {
@@ -467,4 +472,53 @@ func (s *RenderHudSystem) drawHelp() {
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(float64(world.World.ScreenW)-helpW, float64(world.World.ScreenH)-helpH)
 	s.hudImg.DrawImage(s.helpImg, op)
+}
+
+func (s *RenderHudSystem) drawRCIWindow() {
+	if !world.World.ShowRCIWindow {
+		return
+	}
+
+	const paddingX = 8
+
+	const (
+		rciWindowW = 425
+		rciWindowH = 100
+	)
+
+	rciWindowRect := image.Rect(world.World.ScreenW/2-rciWindowW/2, world.World.ScreenH/2-rciWindowH/2, world.World.ScreenW/2+rciWindowW, world.World.ScreenH/2+rciWindowH)
+	s.hudImg.SubImage(rciWindowRect).(*ebiten.Image).Fill(s.sidebarColor)
+
+	percentBar := func(tax float64) string {
+		if tax >= 1.0 {
+			tax = .99
+		}
+		bar := "----------"
+		bar = bar[:int(tax*10)] + "%" + bar[int(tax*10)+1:]
+		return bar
+	}
+
+	label := fmt.Sprintf(`
+Residential %3s%%  - |%s| +
+Commercial  %3s%%  - |%s| +
+Industrial  %3s%%  - |%s| +
+`,
+		strconv.Itoa(int(world.World.TaxR*100)), percentBar(world.World.TaxR),
+		strconv.Itoa(int(world.World.TaxC*100)), percentBar(world.World.TaxC),
+		strconv.Itoa(int(world.World.TaxI*100)), percentBar(world.World.TaxI))
+
+	s.tmpImg.Clear()
+	ebitenutil.DebugPrint(s.tmpImg, strings.TrimSpace(label))
+
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(3, 3)
+	op.GeoM.Translate(float64(rciWindowRect.Min.X)+paddingX, float64(rciWindowRect.Min.Y))
+	s.hudImg.DrawImage(s.tmpImg, op)
+
+	s.hudImg.SubImage(image.Rect(rciWindowRect.Min.X, rciWindowRect.Min.Y, rciWindowRect.Max.X, rciWindowRect.Min.Y+1)).(*ebiten.Image).Fill(color.Black)
+	s.hudImg.SubImage(image.Rect(rciWindowRect.Min.X, rciWindowRect.Max.Y-1, rciWindowRect.Max.X, rciWindowRect.Max.Y)).(*ebiten.Image).Fill(color.Black)
+	s.hudImg.SubImage(image.Rect(rciWindowRect.Min.X, rciWindowRect.Min.Y, rciWindowRect.Min.X+1, rciWindowRect.Max.Y)).(*ebiten.Image).Fill(color.Black)
+	s.hudImg.SubImage(image.Rect(rciWindowRect.Max.X-1, rciWindowRect.Min.Y, rciWindowRect.Max.X, rciWindowRect.Max.Y)).(*ebiten.Image).Fill(color.Black)
+
+	world.World.RCIWindowRect = rciWindowRect
 }

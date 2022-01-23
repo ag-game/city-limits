@@ -58,7 +58,7 @@ func (s *playerMoveSystem) buildStructure(structureType int, tileX int, tileY in
 	}
 
 	structure, err := world.BuildStructure(world.World.HoverStructure, false, tileX, tileY)
-	if err == nil {
+	if err == nil || world.World.HoverStructure == world.StructureBulldozer {
 		world.World.LastBuildX, world.World.LastBuildY = tileX, tileY
 
 		if world.IsPowerPlant(world.World.HoverStructure) {
@@ -89,8 +89,9 @@ func (s *playerMoveSystem) buildStructure(structureType int, tileX int, tileY in
 			sound.Play()
 		}
 
-		cost := world.StructureCosts[structureType]
-		world.World.Funds -= cost
+		if err == nil {
+			world.World.Funds -= cost
+		}
 
 		world.World.HUDUpdated = true
 	} else {
@@ -297,10 +298,18 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 					asset.SoundSelect.Rewind()
 					asset.SoundSelect.Play()
 				}
+			} else if world.AltButtonAt(x, y) == 0 {
+				world.World.ShowRCIWindow = !world.World.ShowRCIWindow
+				world.World.HUDUpdated = true
+
+				asset.SoundSelect.Rewind()
+				asset.SoundSelect.Play()
 			}
 		}
 		return nil
 	}
+
+	world.HandleRCIWindowClick(x, y)
 
 	if x >= world.World.ScreenW-helpW && y >= world.World.ScreenH-helpH {
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
