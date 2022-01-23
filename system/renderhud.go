@@ -3,6 +3,7 @@ package system
 import (
 	"image"
 	"image/color"
+	"math"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -13,11 +14,17 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
+const (
+	helpW = 480
+	helpH = 185
+)
+
 type RenderHudSystem struct {
 	op           *ebiten.DrawImageOptions
 	hudImg       *ebiten.Image
 	tmpImg       *ebiten.Image
 	tmpImg2      *ebiten.Image
+	helpImg      *ebiten.Image
 	sidebarColor color.RGBA
 }
 
@@ -27,6 +34,7 @@ func NewRenderHudSystem() *RenderHudSystem {
 		hudImg:  ebiten.NewImage(1, 1),
 		tmpImg:  ebiten.NewImage(1, 1),
 		tmpImg2: ebiten.NewImage(1, 1),
+		helpImg: ebiten.NewImage(helpW, helpH),
 	}
 
 	sidebarShade := uint8(111)
@@ -58,11 +66,15 @@ func (s *RenderHudSystem) Draw(_ *gohan.Context, screen *ebiten.Image) error {
 		s.drawSidebar()
 		s.drawMessages()
 		s.drawTooltip()
+		s.drawHelp()
 		world.World.HUDUpdated = false
 	}
 	screen.DrawImage(s.hudImg, nil)
 	return nil
 }
+
+const columns = 3
+const buttonWidth = world.SidebarWidth / columns
 
 func (s *RenderHudSystem) drawSidebar() {
 	bounds := s.hudImg.Bounds()
@@ -75,10 +87,6 @@ func (s *RenderHudSystem) drawSidebar() {
 		s.tmpImg.Clear()
 		s.tmpImg2.Clear()
 	}
-	w := world.SidebarWidth
-	if bounds.Dx() < w {
-		w = bounds.Dx()
-	}
 
 	// Fill background.
 	s.hudImg.SubImage(image.Rect(0, 0, world.SidebarWidth, world.World.ScreenH)).(*ebiten.Image).Fill(s.sidebarColor)
@@ -86,9 +94,6 @@ func (s *RenderHudSystem) drawSidebar() {
 	// Draw buttons.
 
 	const paddingSize = 1
-	const columns = 3
-
-	const buttonWidth = world.SidebarWidth / columns
 	const buttonHeight = buttonWidth
 	world.World.HUDButtonRects = make([]image.Rectangle, len(world.HUDButtons))
 	var lastButtonY int
@@ -115,58 +120,25 @@ func (s *RenderHudSystem) drawSidebar() {
 		}
 
 		world.World.HUDButtonRects[i] = r
-		lastButtonY = y
-	}
-
-	s.drawDate(lastButtonY + buttonHeight + 10)
-	s.drawFunds(lastButtonY + buttonHeight + 55)
-
-	// Draw RCI indicator.
-	rciPadding := buttonWidth - 14
-	const rciSize = 100
-	rciX := buttonWidth
-	rciY := lastButtonY + buttonHeight + 55 + rciPadding
-
-	const rciButtonHeight = 20
-
-	// Draw RCI bars.
-	colorR := color.RGBA{0, 255, 0, 255}
-	colorC := color.RGBA{0, 0, 255, 255}
-	colorI := color.RGBA{231, 231, 72, 255}
-	demandR, demandC, demandI := world.Demand()
-	drawDemandBar := func(demand float64, clr color.RGBA, i int) {
-		barOffsetSize := 12
-		barOffset := -barOffsetSize + (i * barOffsetSize)
-		barWidth := 7
-		barX := rciX + buttonWidth/2 - barWidth/2 + barOffset
-		barY := rciY + (rciSize / 2)
-		if demand < 0 {
-			barY += rciButtonHeight / 2
-		} else {
-			barY -= rciButtonHeight / 2
+		if button != nil && button.StructureType != world.StructureToggleTransparentStructures {
+			lastButtonY = y
 		}
-		barHeight := int((float64(rciSize) / 2) * demand)
-		s.tmpImg.SubImage(image.Rect(barX, barY, barX+barWidth, barY-barHeight)).(*ebiten.Image).Fill(clr)
 	}
-	drawDemandBar(demandR, colorR, 0)
-	drawDemandBar(demandC, colorC, 1)
-	drawDemandBar(demandI, colorI, 2)
 
-	// Draw RCI button.
-	const rciButtonPadding = 12
-	const rciButtonLabelPaddingX = 6
-	const rciButtonLabelPaddingY = 1
-	rciButtonY := rciY + (rciSize / 2) - (rciButtonHeight / 2)
-	rciButtonRect := image.Rect(rciX+rciButtonPadding, rciButtonY, rciX+buttonWidth-rciButtonPadding, rciButtonY+rciButtonHeight)
+	dateY := lastButtonY + buttonHeight*2 - buttonHeight/2 - 16
+	s.drawDate(dateY)
+	s.drawFunds(dateY + 50)
 
-	s.drawButtonBackground(s.tmpImg, rciButtonRect, false) // TODO
+	indicatorY := dateY + 179
+	// Draw RCI indicator.
+	s.drawDemand(buttonWidth/2, indicatorY)
 
-	// Draw RCI label.
-	ebitenutil.DebugPrintAt(s.tmpImg, "R C I", rciX+rciButtonPadding+rciButtonLabelPaddingX, rciButtonY+rciButtonLabelPaddingY)
-
-	s.drawButtonBorder(s.tmpImg, rciButtonRect, false) // TODO
+	// Draw PWR indicator.
+	s.drawPower(buttonWidth/2+buttonWidth, indicatorY)
 
 	s.hudImg.DrawImage(s.tmpImg, nil)
+
+	s.hudImg.SubImage(image.Rect(world.SidebarWidth-1, 0, world.SidebarWidth, world.World.ScreenH)).(*ebiten.Image).Fill(color.Black)
 }
 
 func (s *RenderHudSystem) drawButtonBackground(img *ebiten.Image, r image.Rectangle, selected bool) {
@@ -243,6 +215,116 @@ func maxLen(v []string) int {
 	return max
 }
 
+func (s *RenderHudSystem) drawDemand(x, y int) {
+	const rciSize = 100
+	rciX := x
+	rciY := y
+
+	const rciButtonHeight = 20
+
+	colorR := color.RGBA{0, 255, 0, 255}
+	colorC := color.RGBA{0, 0, 255, 255}
+	colorI := color.RGBA{231, 231, 72, 255}
+	demandR, demandC, demandI := world.Demand()
+	drawDemandBar := func(demand float64, clr color.RGBA, i int) {
+		barOffsetSize := 12
+		barOffset := -barOffsetSize + (i * barOffsetSize)
+		barWidth := 7
+		barX := rciX + buttonWidth/2 - barWidth/2 + barOffset
+		barY := rciY + (rciSize / 2)
+		if demand < 0 {
+			barY += rciButtonHeight / 2
+		} else {
+			barY -= rciButtonHeight / 2
+		}
+		barHeight := int((float64(rciSize) / 2) * demand)
+		s.tmpImg.SubImage(image.Rect(barX, barY, barX+barWidth, barY-barHeight)).(*ebiten.Image).Fill(clr)
+	}
+	drawDemandBar(demandR, colorR, 0)
+	drawDemandBar(demandC, colorC, 1)
+	drawDemandBar(demandI, colorI, 2)
+
+	// Draw button.
+	const rciButtonPadding = 12
+	const rciButtonLabelPaddingX = 6
+	const rciButtonLabelPaddingY = 1
+	rciButtonY := rciY + (rciSize / 2) - (rciButtonHeight / 2)
+	rciButtonRect := image.Rect(rciX+rciButtonPadding, rciButtonY, rciX+buttonWidth-rciButtonPadding, rciButtonY+rciButtonHeight)
+
+	s.drawButtonBackground(s.tmpImg, rciButtonRect, false) // TODO
+
+	// Draw label.
+	ebitenutil.DebugPrintAt(s.tmpImg, "R C I", rciX+rciButtonPadding+rciButtonLabelPaddingX, rciButtonY+rciButtonLabelPaddingY)
+
+	s.drawButtonBorder(s.tmpImg, rciButtonRect, false) // TODO
+}
+
+func (s *RenderHudSystem) drawPower(x, y int) {
+	const rciSize = 100
+	rciX := x
+	rciY := y
+
+	const rciButtonHeight = 20
+
+	colorPowerNormal := color.RGBA{0, 255, 0, 255}
+	colorPowerOut := color.RGBA{255, 0, 0, 255}
+	colorPowerCapacity := color.RGBA{16, 16, 16, 255}
+	drawPowerBar := func(demand float64, clr color.RGBA, i int) {
+		barOffsetSize := 7
+		barOffset := -barOffsetSize + (i * barOffsetSize)
+		barWidth := 7
+		barX := rciX + buttonWidth/2 - barWidth/2 + barOffset + 4
+		barY := rciY + (rciSize / 2)
+		if demand < 0 {
+			barY += rciButtonHeight / 2
+		} else {
+			barY -= rciButtonHeight / 2
+		}
+		barHeight := int((float64(rciSize) / 2) * demand)
+		s.tmpImg.SubImage(image.Rect(barX, barY, barX+barWidth, barY-barHeight)).(*ebiten.Image).Fill(clr)
+	}
+
+	powerColor := colorPowerNormal
+	if world.World.HavePowerOut || world.World.PowerNeeded > world.World.PowerAvailable {
+		powerColor = colorPowerOut
+	}
+
+	max := world.World.PowerNeeded
+	if world.World.PowerAvailable > max {
+		max = world.World.PowerAvailable
+	}
+
+	pctUsage, pctCapacity := float64(world.World.PowerNeeded)/float64(max), float64(world.World.PowerAvailable)/float64(max)
+	clamp := func(v float64) float64 {
+		if math.IsNaN(v) {
+			return 0
+		}
+		if v < -1 {
+			v = -1
+		} else if v > 1 {
+			v = 1
+		}
+		return v
+	}
+
+	drawPowerBar(clamp(pctUsage), powerColor, 0)
+	drawPowerBar(clamp(pctCapacity), colorPowerCapacity, 1)
+
+	// Draw button.
+	const rciButtonPadding = 12
+	const rciButtonLabelPaddingX = 6
+	const rciButtonLabelPaddingY = 1
+	rciButtonY := rciY + (rciSize / 2) - (rciButtonHeight / 2)
+	rciButtonRect := image.Rect(rciX+rciButtonPadding, rciButtonY, rciX+buttonWidth-rciButtonPadding, rciButtonY+rciButtonHeight)
+
+	s.drawButtonBackground(s.tmpImg, rciButtonRect, false) // TODO
+
+	// Draw label.
+	ebitenutil.DebugPrintAt(s.tmpImg, "POWER", rciX+rciButtonPadding+rciButtonLabelPaddingX, rciButtonY+rciButtonLabelPaddingY)
+
+	s.drawButtonBorder(s.tmpImg, rciButtonRect, false) // TODO
+}
+
 func (s *RenderHudSystem) drawMessages() {
 	lines := len(world.World.Messages)
 	if lines == 0 {
@@ -264,10 +346,10 @@ func (s *RenderHudSystem) drawMessages() {
 	max := len(label)
 	lines = 1
 
-	const padding = 12
+	const padding = 10
 
 	scale := 2.0
-	w, h := (max*6+10)*int(scale), 16*(int(scale))*lines+6
+	w, h := (max*6+10)*int(scale), 16*(int(scale))*lines+10
 	x, y := world.World.ScreenW-w, 0
 	r := image.Rect(x, y, x+w, y+h)
 	s.hudImg.SubImage(r).(*ebiten.Image).Fill(color.RGBA{0, 0, 0, 120})
@@ -276,7 +358,7 @@ func (s *RenderHudSystem) drawMessages() {
 	ebitenutil.DebugPrint(s.tmpImg, label)
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Scale(scale, scale)
-	op.GeoM.Translate(float64(x)+padding, 0)
+	op.GeoM.Translate(float64(x)+padding, 3)
 	s.hudImg.DrawImage(s.tmpImg, op)
 }
 
@@ -319,4 +401,60 @@ func (s *RenderHudSystem) drawFunds(y int) {
 	op.GeoM.Scale(scale, scale)
 	op.GeoM.Translate(float64(x), float64(y))
 	s.hudImg.DrawImage(s.tmpImg2, op)
+}
+
+func (s *RenderHudSystem) drawHelp() {
+	if world.World.HelpPage < 0 {
+		return
+	}
+
+	if world.World.HelpUpdated {
+		s.helpImg.Fill(s.sidebarColor)
+
+		label := strings.TrimSpace(world.HelpText[world.World.HelpPage])
+
+		s.tmpImg.Clear()
+		ebitenutil.DebugPrint(s.tmpImg, label)
+
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Scale(2, 2)
+		op.GeoM.Translate(5, 0)
+		s.helpImg.DrawImage(s.tmpImg, op)
+
+		s.helpImg.SubImage(image.Rect(0, 0, helpW, 1)).(*ebiten.Image).Fill(color.Black)
+		s.helpImg.SubImage(image.Rect(0, 0, 1, helpH)).(*ebiten.Image).Fill(color.Black)
+
+		// Draw prev/next buttons.
+		buttonSize := 32
+		buttonPadding := 4
+		prevRect := image.Rect(buttonPadding+2, helpH-buttonSize-buttonPadding+1, buttonSize+buttonPadding+2, helpH-buttonPadding+1)
+		closeRect := image.Rect(helpW/2-buttonSize/2, helpH-buttonSize-buttonPadding+1, helpW/2+buttonSize/2, helpH-buttonPadding+1)
+		nextRect := image.Rect(helpW-buttonPadding, helpH-buttonSize-buttonPadding+1, helpW-buttonSize-buttonPadding, helpH-buttonPadding+1)
+
+		drawButton := func(r image.Rectangle, l string) {
+			s.drawButtonBackground(s.helpImg, r, false)
+			ebitenutil.DebugPrintAt(s.helpImg, l, r.Min.X+buttonSize/2-4, r.Min.Y+buttonSize/2-10)
+			s.drawButtonBorder(s.helpImg, r, false)
+		}
+
+		if world.World.HelpPage > 0 {
+			drawButton(prevRect, "<")
+		}
+		drawButton(closeRect, "X")
+		if world.World.HelpPage < len(world.HelpText)-1 {
+			drawButton(nextRect, ">")
+		}
+
+		world.World.HelpButtonRects = []image.Rectangle{
+			prevRect,
+			closeRect,
+			nextRect,
+		}
+
+		world.World.HelpUpdated = false
+	}
+
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64(world.World.ScreenW)-helpW, float64(world.World.ScreenH)-helpH)
+	s.hudImg.DrawImage(s.helpImg, op)
 }

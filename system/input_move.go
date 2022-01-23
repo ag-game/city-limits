@@ -1,7 +1,6 @@
 package system
 
 import (
-	"log"
 	"math/rand"
 	"os"
 	"strings"
@@ -48,6 +47,61 @@ func (_ *playerMoveSystem) Needs() []gohan.ComponentID {
 
 func (_ *playerMoveSystem) Uses() []gohan.ComponentID {
 	return nil
+}
+
+func (s *playerMoveSystem) buildStructure(structureType int, tileX int, tileY int, playSound bool) (*world.Structure, error) {
+	structure, err := world.BuildStructure(world.World.HoverStructure, false, tileX, tileY)
+	if err == nil {
+		if world.IsPowerPlant(world.World.HoverStructure) {
+			plant := &world.PowerPlant{
+				Type: world.World.HoverStructure,
+				X:    tileX,
+				Y:    tileY,
+			}
+			world.World.PowerPlants = append(world.World.PowerPlants, plant)
+		}
+
+		if world.IsZone(structureType) {
+			zone := &world.Zone{
+				Type: world.World.HoverStructure,
+				X:    tileX,
+				Y:    tileY,
+			}
+			world.World.Zones = append(world.World.Zones, zone)
+		}
+
+		if world.World.HoverStructure != world.StructureBulldozer && playSound {
+			sounds := []*audio.Player{
+				asset.SoundPop2,
+				asset.SoundPop3,
+			}
+			sound := sounds[rand.Intn(len(sounds))]
+			sound.Rewind()
+			sound.Play()
+		}
+
+		cost := world.StructureCosts[structureType]
+		world.World.Funds -= cost
+
+		world.World.HUDUpdated = true
+	} else {
+		dX := tileX - world.World.LastBuildX
+		if dX < 0 {
+			dX *= -1
+		}
+		dY := tileY - world.World.LastBuildY
+		if dY < 0 {
+			dY *= -1
+		}
+		if (dX > 1 || dY > 1) && err != world.ErrNothingToBulldoze {
+			errMessage := err.Error()
+			if len(errMessage) > 0 {
+				errMessage = strings.ToUpper(errMessage[0:1]) + errMessage[1:]
+			}
+			world.ShowMessage(errMessage, 3)
+		}
+	}
+	return structure, err
 }
 
 func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
@@ -230,70 +284,132 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 				}
 			}
 		}
-	} else if world.World.HoverStructure != 0 {
+		return nil
+	}
+
+	if x >= world.World.ScreenW-helpW && y >= world.World.ScreenH-helpH {
+		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+			const (
+				helpPrev = iota
+				helpClose
+				helpNext
+			)
+
+			helpButton := world.HelpButtonAt(x-(world.World.ScreenW-helpW), y-(world.World.ScreenH-helpH))
+			var updated bool
+			switch helpButton {
+			case helpPrev:
+				if world.World.HelpPage > 0 {
+					world.World.HelpPage--
+					updated = true
+				}
+			case helpClose:
+				world.World.HelpPage = -1
+				updated = true
+			case helpNext:
+				if world.World.HelpPage < len(world.HelpText)-1 {
+					world.World.HelpPage++
+					updated = true
+				}
+			}
+			if updated {
+				world.World.HelpUpdated = true
+				world.World.HUDUpdated = true
+
+				asset.SoundSelect.Rewind()
+				asset.SoundSelect.Play()
+			}
+		}
+		return nil
+	}
+
+	if world.World.HoverStructure != 0 {
+		roadTiles := func(fromX, fromY, toX, toY int) [][2]int {
+			var tiles [][2]int
+			fx, fy := float64(fromX), float64(fromY)
+			tx, ty := float64(toX), float64(toY)
+			dx, dy := tx-fx, ty-fy
+			for dx < -1 || dx > 1 || dy < -1 || dy > 1 {
+				dx /= 2
+				dy /= 2
+			}
+			tiles = append(tiles, [2]int{fromX, fromY})
+			for fx != tx || fy != ty {
+				fx, fy = fx+dx, fy+dy
+				tiles = append(tiles, [2]int{int(fx), int(fy)})
+			}
+			return tiles
+		}
+
 		tileX, tileY := world.ScreenToCartesian(x, y)
 		if tileX >= 0 && tileY >= 0 && tileX < 256 && tileY < 256 {
-			multiUseStructure := world.World.HoverStructure == world.StructureBulldozer || world.World.HoverStructure == world.StructureRoad
-			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || (multiUseStructure && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)) {
+
+			multiUseStructure := world.World.HoverStructure == world.StructureBulldozer || world.World.HoverStructure == world.StructureRoad || world.IsZone(world.World.HoverStructure)
+			dragStarted := world.World.BuildDragX != -1 || world.World.BuildDragY != -1
+			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || (multiUseStructure && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)) || dragStarted {
+				if !dragStarted {
+					world.World.BuildDragX, world.World.BuildDragY = int(tileX), int(tileY)
+
+					if world.World.HoverStructure == world.StructureBulldozer {
+						asset.SoundBulldoze.Play()
+					}
+				}
+
+				if world.World.HoverStructure == world.StructureRoad {
+					tiles := roadTiles(world.World.BuildDragX, world.World.BuildDragY, int(tileX), int(tileY))
+
+					if dragStarted && !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+						// TODO build all tiles
+						world.World.Level.ClearHoverSprites()
+						var cost int
+						var builtRoad bool
+						for _, tile := range tiles {
+							_, err := s.buildStructure(world.World.HoverStructure, tile[0], tile[1], !builtRoad)
+							if err == nil {
+								cost += world.StructureCosts[world.World.HoverStructure]
+								builtRoad = true
+							}
+						}
+						if cost > 0 {
+							world.ShowBuildCost(world.World.HoverStructure, cost)
+						}
+
+						world.World.BuildDragX, world.World.BuildDragY = -1, -1
+						dragStarted = false
+					} else {
+						// TODO draw hover sprites
+						// TODO move below into shared func
+						world.World.Level.ClearHoverSprites()
+						for _, tile := range tiles {
+							world.BuildStructure(world.World.HoverStructure, true, tile[0], tile[1])
+						}
+					}
+					return nil
+				} else if dragStarted && !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+					world.World.BuildDragX, world.World.BuildDragY = -1, -1
+					asset.SoundBulldoze.Pause()
+				}
+
 				cost := world.StructureCosts[world.World.HoverStructure]
 				if world.World.Funds < cost {
-					// TODO
-					log.Println("NOT ENOUGH FUNDS")
+					world.ShowMessage("Insufficient funds", 3)
 				} else {
 					world.World.Level.ClearHoverSprites()
 
 					// TODO draw hovers and build all roads in a line from drag start
-
-					s, err := world.BuildStructure(world.World.HoverStructure, false, int(tileX), int(tileY))
+					structure, err := s.buildStructure(world.World.HoverStructure, int(tileX), int(tileY), true)
 					if err == nil {
-						tileX, tileY = float64(s.X), float64(s.Y)
-
-						isPowerPlant := world.World.HoverStructure == world.StructurePowerPlantCoal
-						if isPowerPlant {
-							plant := &world.PowerPlant{
-								Type: world.World.HoverStructure,
-								X:    int(tileX),
-								Y:    int(tileY),
-							}
-							world.World.PowerPlants = append(world.World.PowerPlants, plant)
-						}
-
-						isZone := world.World.HoverStructure == world.StructureResidentialZone || world.World.HoverStructure == world.StructureCommercialZone || world.World.HoverStructure == world.StructureIndustrialZone
-						if isZone {
-							zone := &world.Zone{
-								Type: world.World.HoverStructure,
-								X:    int(tileX),
-								Y:    int(tileY),
-							}
-							world.World.Zones = append(world.World.Zones, zone)
-						}
-
-						if world.World.HoverStructure != world.StructureBulldozer {
-							sounds := []*audio.Player{
-								asset.SoundPop2,
-								asset.SoundPop3,
-							}
-							sound := sounds[rand.Intn(len(sounds))]
-							sound.Rewind()
-							sound.Play()
-						}
-						world.World.Funds -= cost
-
-						if world.World.HoverStructure == world.StructureResidentialZone {
-							world.ShowMessage(world.World.Printer.Sprintf("Zoned area for residential use (-$%d)", cost), 3)
-						} else if world.World.HoverStructure == world.StructureCommercialZone {
-							world.ShowMessage(world.World.Printer.Sprintf("Zoned area for commercial use (-$%d)", cost), 3)
-						} else if world.World.HoverStructure == world.StructureIndustrialZone {
-							world.ShowMessage(world.World.Printer.Sprintf("Zoned area for industrial use (-$%d)", cost), 3)
-						} else {
-							world.ShowMessage(world.World.Printer.Sprintf("Built %s (-$%d)", strings.ToLower(world.StructureTooltips[world.World.HoverStructure]), cost), 3)
-						}
-
-						world.World.HUDUpdated = true
+						tileX, tileY = float64(structure.X), float64(structure.Y)
+						world.ShowBuildCost(world.World.HoverStructure, cost)
 					}
+
 					world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))
 				}
-			} else if int(tileX) != world.World.HoverX || int(tileY) != world.World.HoverY {
+			} else {
+				if world.World.LastBuildX != -1 || world.World.LastBuildY != -1 {
+					world.World.LastBuildX, world.World.LastBuildY = -1, -1
+				}
+
 				world.World.Level.ClearHoverSprites()
 
 				world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))

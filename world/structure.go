@@ -20,6 +20,7 @@ const (
 	StructureIndustrialHigh
 	StructurePoliceStation
 	StructurePowerPlantCoal
+	StructurePowerPlantSolar
 )
 
 var StructureFilePaths = map[int]string{
@@ -39,6 +40,7 @@ var StructureFilePaths = map[int]string{
 	StructureIndustrialHigh:    "map/industrial_high1.tmx",
 	StructurePoliceStation:     "map/policestation.tmx",
 	StructurePowerPlantCoal:    "map/power_coal.tmx",
+	StructurePowerPlantSolar:   "map/power_solar.tmx",
 }
 
 type Structure struct {

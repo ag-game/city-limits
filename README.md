@@ -33,6 +33,5 @@ Please share issues and suggestions [here](https://code.rocketnine.space/tslocum
 ## Dependencies
 
 - [ebiten](https://github.com/hajimehoshi/ebiten) - Game engine
-- [gohan](https://code.rocketnine.space/tslocum/gohan) - Entity Component System framework
 - [go-tiled](https://github.com/lafriks/go-tiled) - Tiled map file (.TMX) parser
 - [go-astar](https://github.com/beefsack/go-astar) - Pathfinding library

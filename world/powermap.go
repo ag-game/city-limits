@@ -4,12 +4,6 @@ import (
 	"github.com/beefsack/go-astar"
 )
 
-const (
-	powerEmptyTile = iota
-	powerSourceTile
-	powerDestinationTile
-)
-
 type PowerMapTile struct {
 	X            int
 	Y            int
@@ -94,6 +88,7 @@ func ResetPowerOuts() {
 			World.PowerOuts[x][y] = false
 		}
 	}
+	World.HavePowerOut = false
 }
 
 func (m PowerMap) GetTile(x, y int) *PowerMapTile {
@@ -105,6 +100,9 @@ func (m PowerMap) GetTile(x, y int) *PowerMapTile {
 
 func (m PowerMap) SetTile(x, y int, carriesPower bool) {
 	t := m[x][y]
+	if t.CarriesPower == carriesPower {
+		return
+	}
 	t.CarriesPower = carriesPower
 
 	World.PowerUpdated = true

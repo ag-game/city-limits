@@ -27,13 +27,14 @@ var (
 )
 
 var (
-	SoundMusic  *audio.Player
-	SoundSelect *audio.Player
-	SoundPop1   *audio.Player
-	SoundPop2   *audio.Player
-	SoundPop3   *audio.Player
-	SoundPop4   *audio.Player
-	SoundPop5   *audio.Player
+	SoundMusic    *audio.Player
+	SoundSelect   *audio.Player
+	SoundBulldoze *audio.Player
+	SoundPop1     *audio.Player
+	SoundPop2     *audio.Player
+	SoundPop3     *audio.Player
+	SoundPop4     *audio.Player
+	SoundPop5     *audio.Player
 )
 
 func init() {
@@ -47,6 +48,9 @@ func LoadSounds(ctx *audio.Context) {
 
 	SoundSelect = LoadWAV(ctx, "sound/select/select.wav")
 	SoundSelect.SetVolume(0.6)
+
+	SoundBulldoze = LoadOGG(ctx, "sound/bulldozer/bulldozer.ogg", true)
+	SoundBulldoze.SetVolume(0.4)
 
 	const popVolume = 0.15
 	SoundPop1 = LoadWAV(ctx, "sound/pop/pop1.wav")

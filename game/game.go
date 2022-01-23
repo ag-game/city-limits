@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"os"
 	"sync"
-	"time"
 
 	"code.rocketnine.space/tslocum/citylimits/entity"
 
@@ -87,8 +86,6 @@ func (g *game) Update() error {
 	if world.World.ResetGame {
 		world.Reset()
 
-		rand.Seed(time.Now().UnixNano())
-
 		err := world.LoadTileset()
 		if err != nil {
 			return err
@@ -167,11 +164,34 @@ func (g *game) Update() error {
 				SpriteOffsetY: 2,
 				Sprite:        world.DrawMap(world.StructurePowerPlantCoal),
 			}, {
+				StructureType: world.StructurePowerPlantSolar,
+				SpriteOffsetX: -20,
+				SpriteOffsetY: 2,
+				Sprite:        world.DrawMap(world.StructurePowerPlantSolar),
+			}, {
 				StructureType: world.StructurePoliceStation,
 				SpriteOffsetX: -19,
 				SpriteOffsetY: -4,
 				Sprite:        world.DrawMap(world.StructurePoliceStation),
 			},
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -302,7 +322,7 @@ func (g *game) Draw(screen *ebiten.Image) {
 				drawn += g.renderSprite(float64(x), float64(y), 0, float64(i*-40), 0, 1, colorScale, alpha, false, false, sprite, screen)
 
 				// Draw power-outs.
-				if world.World.Ticks%(144*2) < int(144.0*1.5) && world.World.PowerOuts[x][y] {
+				if world.World.HavePowerOut && world.World.Ticks%(144*2) < int(144.0*1.5) && world.World.PowerOuts[x][y] {
 					drawn += g.renderSprite(float64(x), float64(y), 0, -52, 0, 1, 1, 1, false, false, asset.ImgPower, screen)
 				}
 			}

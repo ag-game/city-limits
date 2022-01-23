@@ -9,7 +9,9 @@ import (
 	"math/rand"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -27,7 +29,7 @@ const startingYear = 1950
 const maxPopulation = 100000
 
 const (
-	MonthTicks = 144 * 3
+	MonthTicks = 144 * 7
 	YearTicks  = MonthTicks * 12
 )
 
@@ -39,7 +41,7 @@ const startingFunds = 10000
 
 const startingZoom = 1.0
 
-const SidebarWidth = 198
+const SidebarWidth = 199
 
 type HUDButton struct {
 	Sprite                       *ebiten.Image
@@ -50,7 +52,7 @@ type HUDButton struct {
 
 var HUDButtons []*HUDButton
 
-var CameraMinZoom = 0.4
+var CameraMinZoom = 0.1
 var CameraMaxZoom = 1.0
 
 var World = &GameWorld{
@@ -65,6 +67,10 @@ var World = &GameWorld{
 	Printer:        message.NewPrinter(language.English),
 	Power:          newPowerMap(),
 	PowerOuts:      newPowerOuts(),
+	BuildDragX:     -1,
+	BuildDragY:     -1,
+	LastBuildX:     -1,
+	LastBuildY:     -1,
 }
 
 type Zone struct {
@@ -142,10 +148,15 @@ type GameWorld struct {
 	HUDUpdated     bool
 	HUDButtonRects []image.Rectangle
 
+	HelpUpdated     bool
+	HelpPage        int
+	HelpButtonRects []image.Rectangle
+
 	PowerPlants []*PowerPlant
 	Zones       []*Zone
 
-	PowerOuts [][]bool
+	HavePowerOut bool
+	PowerOuts    [][]bool
 
 	Ticks int
 
@@ -165,8 +176,16 @@ type GameWorld struct {
 	PowerAvailable int
 	PowerNeeded    int
 
+	BuildDragX int
+	BuildDragY int
+
+	LastBuildX int
+	LastBuildY int
+
 	resetTipShown bool
 }
+
+var ErrNothingToBulldoze = errors.New("nothing to bulldoze")
 
 func TileToGameCoords(x, y int) (float64, float64) {
 	//return float64(x) * 32, float64(g.currentMap.Height*32) - float64(y)*32 - 32
@@ -179,6 +198,8 @@ func Reset() {
 	}
 	World.Player = 0
 
+	rand.Seed(time.Now().UnixNano())
+
 	World.Funds = startingFunds
 
 	World.ObjectGroups = nil
@@ -188,6 +209,10 @@ func Reset() {
 	World.TriggerEntities = nil
 	World.TriggerRects = nil
 	World.TriggerNames = nil
+
+	World.CamX = float64((32 * TileSize) - rand.Intn(64*TileSize))
+	World.CamY = float64((32 * TileSize) + rand.Intn(32*TileSize))
+
 }
 
 func LoadMap(structureType int) (*tiled.Map, error) {
@@ -283,6 +308,20 @@ func LoadTileset() error {
 	return nil
 }
 
+func ShowBuildCost(structureType int, cost int) {
+	if structureType == StructureBulldozer {
+		ShowMessage(World.Printer.Sprintf("Bulldozed area (-$%d)", cost), 3)
+	} else if structureType == StructureResidentialZone {
+		ShowMessage(World.Printer.Sprintf("Zoned area for residential use (-$%d)", cost), 3)
+	} else if structureType == StructureCommercialZone {
+		ShowMessage(World.Printer.Sprintf("Zoned area for commercial use (-$%d)", cost), 3)
+	} else if structureType == StructureIndustrialZone {
+		ShowMessage(World.Printer.Sprintf("Zoned area for industrial use (-$%d)", cost), 3)
+	} else {
+		ShowMessage(World.Printer.Sprintf("Built %s (-$%d)", strings.ToLower(StructureTooltips[World.HoverStructure]), cost), 3)
+	}
+}
+
 func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Structure, error) {
 	// For previewing buildings
 	/*v := rand.Intn(3)
@@ -361,7 +400,7 @@ func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Str
 			}
 		}
 		if !bulldozed {
-			return nil, errors.New("nothing to bulldoze")
+			return nil, ErrNothingToBulldoze
 		}
 		World.Power.SetTile(placeX, placeY, false)
 		return structure, nil
@@ -475,7 +514,11 @@ VALIDBUILD:
 					if structureType == StructureRoad {
 						World.Power.SetTile(tx, ty, true)
 					}
-					World.PowerUpdated = true
+
+					isZone := structureType == StructureResidentialZone || structureType == StructureCommercialZone || structureType == StructureIndustrialZone
+					if isZone || structureType == StructurePowerPlantCoal || structureType == StructureBulldozer {
+						World.PowerUpdated = true
+					}
 				}
 
 				// TODO handle flipping
@@ -535,6 +578,9 @@ func StartGame() {
 	if !World.MuteMusic {
 		asset.SoundMusic.Play()
 	}
+
+	// Show initial help page.
+	SetHelpPage(0)
 }
 
 // CartesianToIso transforms cartesian coordinates into isometric coordinates.
@@ -571,13 +617,23 @@ func ScreenToCartesian(x, y int) (float64, float64) {
 }
 
 func HUDButtonAt(x, y int) *HUDButton {
-	for i, colorRect := range World.HUDButtonRects {
-		point := image.Point{x, y}
-		if point.In(colorRect) {
+	point := image.Point{x, y}
+	for i, rect := range World.HUDButtonRects {
+		if point.In(rect) {
 			return HUDButtons[i]
 		}
 	}
 	return nil
+}
+
+func HelpButtonAt(x, y int) int {
+	point := image.Point{x, y}
+	for i, rect := range World.HelpButtonRects {
+		if point.In(rect) {
+			return i
+		}
+	}
+	return -1
 }
 
 func SetHoverStructure(structureType int) {
@@ -630,6 +686,7 @@ var StructureTooltips = map[int]string{
 	StructureRoad:                        "Road",
 	StructurePoliceStation:               "Police station",
 	StructurePowerPlantCoal:              "Coal power plant",
+	StructurePowerPlantSolar:             "Solar power plant",
 	StructureResidentialZone:             "Residential zone",
 	StructureCommercialZone:              "Commercial zone",
 	StructureIndustrialZone:              "Industrial zone",
@@ -640,6 +697,7 @@ var StructureCosts = map[int]int{
 	StructureRoad:            25,
 	StructurePoliceStation:   1000,
 	StructurePowerPlantCoal:  4000,
+	StructurePowerPlantSolar: 10000,
 	StructureResidentialZone: 100,
 	StructureCommercialZone:  200,
 	StructureIndustrialZone:  100,
@@ -726,11 +784,25 @@ func ValidXY(x, y int) bool {
 }
 
 var PowerPlantCapacities = map[int]int{
-	StructurePowerPlantCoal: 60,
+	StructurePowerPlantCoal:  60,
+	StructurePowerPlantSolar: 40,
 }
 
 var ZonePowerRequirement = map[int]int{
 	StructureResidentialZone: 1,
 	StructureCommercialZone:  1,
 	StructureIndustrialZone:  1,
+}
+
+func SetHelpPage(page int) {
+	World.HelpPage = page
+	World.HelpUpdated = true
+}
+
+func IsPowerPlant(structureType int) bool {
+	return structureType == StructurePowerPlantCoal || structureType == StructurePowerPlantSolar
+}
+
+func IsZone(structureType int) bool {
+	return structureType == StructureResidentialZone || structureType == StructureCommercialZone || structureType == StructureIndustrialZone
 }

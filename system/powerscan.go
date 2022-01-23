@@ -1,8 +1,6 @@
 package system
 
 import (
-	"log"
-
 	"github.com/beefsack/go-astar"
 
 	"code.rocketnine.space/tslocum/citylimits/component"
@@ -58,7 +56,6 @@ func (s *PowerScanSystem) Update(_ *gohan.Context) error {
 		plantSize = 5
 	)
 	powerSourceTiles := make([][]*world.PowerMapTile, len(world.World.PowerPlants))
-	log.Println("POWER TILES")
 	for i, plant := range world.World.PowerPlants {
 		for y := 0; y < plantSize; y++ {
 			t := world.World.Power.GetTile(plant.X+1, plant.Y-y)
@@ -132,23 +129,15 @@ func (s *PowerScanSystem) Update(_ *gohan.Context) error {
 			}
 
 			for _, powerSource := range powerSourceTiles[j] {
+				from := world.World.Power.GetTile(powerSource.X, powerSource.Y)
+
 				for _, to := range powerDestinationTiles {
 					if to == nil {
 						continue
 					}
 
-					from := world.World.Power.GetTile(powerSource.X, powerSource.Y)
-
-					log.Println("SEARCH", from.X, from.Y, "TO", to.X, to.Y)
-
-					/*for _, n := range powerSource.PathNeighbors() {
-						t := n.(*world.PowerMapTile)
-						log.Println("NEIGHBOR", t.X, t.Y, t.CarriesPower)
-					}*/
-
-					p, dist, found := astar.Path(from, to)
+					_, _, found := astar.Path(from, to)
 					if found {
-						log.Printf("Resulting path\n%+v %f", p, dist)
 						powerRemaining[j] -= powerRequired
 						powered = true
 						break FINDPOWERPATH
@@ -157,11 +146,10 @@ func (s *PowerScanSystem) Update(_ *gohan.Context) error {
 			}
 		}
 		zone.Powered = powered
-		log.Println("ZONE", zone, zone.Powered)
-
 		if !powered {
 			havePowerOut = true
 			world.World.PowerOuts[zone.X][zone.Y] = true
+			world.World.HavePowerOut = true
 		}
 
 		totalPowerRequired += powerRequired
