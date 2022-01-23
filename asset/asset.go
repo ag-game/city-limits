@@ -23,6 +23,7 @@ var (
 	ImgBlank       = ebiten.NewImage(1, 1)
 	ImgWhiteSquare = ebiten.NewImage(64, 64)
 	ImgBlackSquare = ebiten.NewImage(64, 64)
+	ImgHelp        = LoadImage("image/help.png")
 	ImgPower       = LoadImage("image/power.png")
 )
 

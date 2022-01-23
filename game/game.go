@@ -92,15 +92,12 @@ func (g *game) Update() error {
 		}
 
 		// Fill below ground layer.
-		grassTile := uint32(11*32 + (0))
-		treeTileA := uint32(5*32 + (24))
-		treeTileB := uint32(5*32 + (25))
 		var img uint32
 		for x := range world.World.Level.Tiles[0] {
 			for y := range world.World.Level.Tiles[0][x] {
 				img = world.DirtTile
 				if rand.Intn(150) == 0 {
-					img = grassTile
+					img = world.GrassTile
 					world.World.Level.Tiles[0][x][y].EnvironmentSprite = world.World.TileImages[img+world.World.TileImagesFirstGID]
 					for offsetX := -2 - rand.Intn(7); offsetX < 2+rand.Intn(7); offsetX++ {
 						for offsetY := -2 - rand.Intn(7); offsetY < 2+rand.Intn(7); offsetY++ {
@@ -108,9 +105,9 @@ func (g *game) Update() error {
 								world.World.Level.Tiles[0][x+offsetX][y+offsetY].EnvironmentSprite = world.World.TileImages[img+world.World.TileImagesFirstGID]
 								if rand.Intn(4) == 0 {
 									if rand.Intn(3) == 0 {
-										world.World.Level.Tiles[1][x+offsetX][y+offsetY].EnvironmentSprite = world.World.TileImages[treeTileA+world.World.TileImagesFirstGID]
+										world.World.Level.Tiles[1][x+offsetX][y+offsetY].EnvironmentSprite = world.World.TileImages[world.TreeTileA+world.World.TileImagesFirstGID]
 									} else {
-										world.World.Level.Tiles[1][x+offsetX][y+offsetY].EnvironmentSprite = world.World.TileImages[treeTileB+world.World.TileImagesFirstGID]
+										world.World.Level.Tiles[1][x+offsetX][y+offsetY].EnvironmentSprite = world.World.TileImages[world.TreeTileB+world.World.TileImagesFirstGID]
 									}
 								}
 							}
@@ -143,7 +140,9 @@ func (g *game) Update() error {
 				Sprite:        world.DrawMap(world.StructureRoad),
 				SpriteOffsetX: -12,
 				SpriteOffsetY: -28,
-			}, {
+			},
+			nil,
+			{
 				StructureType: world.StructureResidentialZone,
 				Sprite:        world.DrawMap(world.StructureResidentialLow),
 				SpriteOffsetX: -12,
@@ -169,10 +168,10 @@ func (g *game) Update() error {
 				SpriteOffsetY: 2,
 				Sprite:        world.DrawMap(world.StructurePowerPlantSolar),
 			}, {
-				StructureType: world.StructurePoliceStation,
-				SpriteOffsetX: -19,
-				SpriteOffsetY: -4,
-				Sprite:        world.DrawMap(world.StructurePoliceStation),
+				StructureType: world.StructurePowerPlantNuclear,
+				SpriteOffsetX: -20,
+				SpriteOffsetY: 2,
+				Sprite:        world.DrawMap(world.StructurePowerPlantNuclear),
 			},
 			nil,
 			nil,
@@ -194,12 +193,17 @@ func (g *game) Update() error {
 			nil,
 			nil,
 			nil,
-			nil,
+			{
+				StructureType: world.StructureToggleHelp,
+				Sprite:        asset.ImgHelp,
+				SpriteOffsetX: 0,
+				SpriteOffsetY: -1,
+			},
 			{
 				StructureType: world.StructureToggleTransparentStructures,
 				Sprite:        transparentImg,
 				SpriteOffsetX: -12,
-				SpriteOffsetY: 0,
+				SpriteOffsetY: -0,
 			},
 		}
 

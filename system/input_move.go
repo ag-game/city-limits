@@ -263,7 +263,13 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 			button := world.HUDButtonAt(x, y)
 			if button != nil {
 				if button.StructureType != 0 {
-					if button.StructureType == world.StructureToggleTransparentStructures {
+					if button.StructureType == world.StructureToggleHelp {
+						if world.World.HelpPage != -1 {
+							world.SetHelpPage(-1)
+						} else {
+							world.SetHelpPage(0)
+						}
+					} else if button.StructureType == world.StructureToggleTransparentStructures {
 						world.World.TransparentStructures = !world.World.TransparentStructures
 						world.World.HUDUpdated = true
 
@@ -343,7 +349,6 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 
 		tileX, tileY := world.ScreenToCartesian(x, y)
 		if tileX >= 0 && tileY >= 0 && tileX < 256 && tileY < 256 {
-
 			multiUseStructure := world.World.HoverStructure == world.StructureBulldozer || world.World.HoverStructure == world.StructureRoad || world.IsZone(world.World.HoverStructure)
 			dragStarted := world.World.BuildDragX != -1 || world.World.BuildDragY != -1
 			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || (multiUseStructure && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)) || dragStarted {

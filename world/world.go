@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hajimehoshi/ebiten/v2/audio"
+
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 
@@ -42,6 +44,12 @@ const startingFunds = 10000
 const startingZoom = 1.0
 
 const SidebarWidth = 199
+
+var (
+	GrassTile = uint32(11*32 + (0))
+	TreeTileA = uint32(5*32 + (24))
+	TreeTileB = uint32(5*32 + (25))
+)
 
 type HUDButton struct {
 	Sprite                       *ebiten.Image
@@ -187,11 +195,6 @@ type GameWorld struct {
 
 var ErrNothingToBulldoze = errors.New("nothing to bulldoze")
 
-func TileToGameCoords(x, y int) (float64, float64) {
-	//return float64(x) * 32, float64(g.currentMap.Height*32) - float64(y)*32 - 32
-	return float64(x) * TileSize, float64(y) * TileSize
-}
-
 func Reset() {
 	for _, e := range ECS.Entities() {
 		ECS.RemoveEntity(e)
@@ -323,37 +326,6 @@ func ShowBuildCost(structureType int, cost int) {
 }
 
 func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Structure, error) {
-	// For previewing buildings
-	/*v := rand.Intn(3)
-	if structureType == StructureResidentialZone {
-		switch v {
-		case 0:
-			structureType = StructureResidentialLow
-		case 1:
-			structureType = StructureResidentialMedium
-		case 2:
-			structureType = StructureResidentialHigh
-		}
-	} else if structureType == StructureCommercialZone {
-		switch v {
-		case 0:
-			structureType = StructureCommercialLow
-		case 1:
-			structureType = StructureCommercialMedium
-		case 2:
-			structureType = StructureCommercialHigh
-		}
-	} else if structureType == StructureIndustrialZone {
-		switch v {
-		case 0:
-			structureType = StructureIndustrialLow
-		case 1:
-			structureType = StructureIndustrialMedium
-		case 2:
-			structureType = StructureIndustrialHigh
-		}
-	}*/
-
 	m, err := LoadMap(structureType)
 	if err != nil {
 		return nil, err
@@ -395,6 +367,18 @@ func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Str
 				img = World.TileImages[DirtTile+World.TileImagesFirstGID]
 			}
 			if World.Level.Tiles[i][placeX][placeY].EnvironmentSprite != img {
+				bulldozeTree := World.Level.Tiles[i][placeX][placeY].EnvironmentSprite == World.TileImages[TreeTileA+World.TileImagesFirstGID] || World.Level.Tiles[i][placeX][placeY].EnvironmentSprite == World.TileImages[TreeTileB+World.TileImagesFirstGID]
+				if bulldozeTree {
+					sounds := []*audio.Player{
+						asset.SoundPop1,
+						asset.SoundPop4,
+						asset.SoundPop5,
+					}
+					sound := sounds[rand.Intn(len(sounds))]
+					sound.Rewind()
+					sound.Play()
+				}
+
 				World.Level.Tiles[i][placeX][placeY].EnvironmentSprite = img
 				bulldozed = true
 			}
@@ -545,28 +529,6 @@ func (w *GameWorld) SetGameOver(vx, vy float64) {
 	}
 
 	w.GameOver = true
-
-	// TODO
-}
-
-// TODO move
-func NewActor(creepType int, creepID int64, x float64, y float64) gohan.Entity {
-	actor := ECS.NewEntity()
-
-	ECS.AddComponent(actor, &component.PositionComponent{
-		X: x,
-		Y: y,
-	})
-
-	ECS.AddComponent(actor, &component.ActorComponent{
-		Type:       creepType,
-		Health:     64,
-		FireAmount: 8,
-		FireRate:   144 / 4,
-		Rand:       rand.New(rand.NewSource(creepID)),
-	})
-
-	return actor
 }
 
 func StartGame() {
@@ -681,26 +643,29 @@ func Demand() (r, c, i float64) {
 }
 
 var StructureTooltips = map[int]string{
+	StructureToggleHelp:                  "Help",
 	StructureToggleTransparentStructures: "Transparent buildings",
 	StructureBulldozer:                   "Bulldozer",
 	StructureRoad:                        "Road",
 	StructurePoliceStation:               "Police station",
 	StructurePowerPlantCoal:              "Coal power plant",
 	StructurePowerPlantSolar:             "Solar power plant",
+	StructurePowerPlantNuclear:           "Nuclear plant",
 	StructureResidentialZone:             "Residential zone",
 	StructureCommercialZone:              "Commercial zone",
 	StructureIndustrialZone:              "Industrial zone",
 }
 
 var StructureCosts = map[int]int{
-	StructureBulldozer:       5,
-	StructureRoad:            25,
-	StructurePoliceStation:   1000,
-	StructurePowerPlantCoal:  4000,
-	StructurePowerPlantSolar: 10000,
-	StructureResidentialZone: 100,
-	StructureCommercialZone:  200,
-	StructureIndustrialZone:  100,
+	StructureBulldozer:         5,
+	StructureRoad:              25,
+	StructurePoliceStation:     1000,
+	StructurePowerPlantCoal:    4000,
+	StructurePowerPlantSolar:   10000,
+	StructurePowerPlantNuclear: 25000,
+	StructureResidentialZone:   100,
+	StructureCommercialZone:    200,
+	StructureIndustrialZone:    100,
 }
 
 func Tooltip() string {
@@ -784,8 +749,9 @@ func ValidXY(x, y int) bool {
 }
 
 var PowerPlantCapacities = map[int]int{
-	StructurePowerPlantCoal:  60,
-	StructurePowerPlantSolar: 40,
+	StructurePowerPlantCoal:    60,
+	StructurePowerPlantSolar:   40,
+	StructurePowerPlantNuclear: 200,
 }
 
 var ZonePowerRequirement = map[int]int{
@@ -797,10 +763,11 @@ var ZonePowerRequirement = map[int]int{
 func SetHelpPage(page int) {
 	World.HelpPage = page
 	World.HelpUpdated = true
+	World.HUDUpdated = true
 }
 
 func IsPowerPlant(structureType int) bool {
-	return structureType == StructurePowerPlantCoal || structureType == StructurePowerPlantSolar
+	return structureType == StructurePowerPlantCoal || structureType == StructurePowerPlantSolar || structureType == StructurePowerPlantNuclear
 }
 
 func IsZone(structureType int) bool {

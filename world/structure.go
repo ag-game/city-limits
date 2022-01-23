@@ -3,7 +3,8 @@ package world
 import "code.rocketnine.space/tslocum/gohan"
 
 const (
-	StructureToggleTransparentStructures = iota + 1
+	StructureToggleHelp = iota + 1
+	StructureToggleTransparentStructures
 	StructureBulldozer
 	StructureRoad
 	StructureResidentialZone
@@ -21,6 +22,7 @@ const (
 	StructurePoliceStation
 	StructurePowerPlantCoal
 	StructurePowerPlantSolar
+	StructurePowerPlantNuclear
 )
 
 var StructureFilePaths = map[int]string{
@@ -41,6 +43,7 @@ var StructureFilePaths = map[int]string{
 	StructurePoliceStation:     "map/policestation.tmx",
 	StructurePowerPlantCoal:    "map/power_coal.tmx",
 	StructurePowerPlantSolar:   "map/power_solar.tmx",
+	StructurePowerPlantNuclear: "map/power_nuclear.tmx",
 }
 
 type Structure struct {
