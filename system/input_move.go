@@ -57,7 +57,7 @@ func (s *playerMoveSystem) buildStructure(structureType int, tileX int, tileY in
 		return nil, errors.New("insufficient funds")
 	}
 
-	structure, err := world.BuildStructure(world.World.HoverStructure, false, tileX, tileY)
+	structure, err := world.BuildStructure(world.World.HoverStructure, false, tileX, tileY, false)
 	if err == nil || world.World.HoverStructure == world.StructureBulldozer {
 		world.World.LastBuildX, world.World.LastBuildY = tileX, tileY
 
@@ -147,10 +147,17 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyM) {
 		world.World.MuteMusic = !world.World.MuteMusic
 		if world.World.MuteMusic {
-			asset.SoundMusic.Pause()
+			asset.SoundMusic1.Pause()
+			asset.SoundMusic2.Pause()
+			asset.SoundMusic3.Pause()
 		} else {
-			asset.SoundMusic.Play()
+			world.ResumeSong()
 		}
+	}
+
+	if inpututil.IsKeyJustPressed(ebiten.KeyN) {
+		world.World.MuteMusic = false
+		world.PlayNextSong()
 	}
 
 	if world.World.GameOver {
@@ -213,7 +220,6 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 		}
 	}
 
-	const scrollEdgeSize = 1
 	x, y := ebiten.CursorPosition()
 	if !world.World.GotCursorPosition {
 		if x != 0 || y != 0 {
@@ -237,18 +243,12 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 		if s.scrollDragX != -1 && s.scrollDragY != -1 {
 			s.scrollDragX, s.scrollDragY = -1, -1
 			//ebiten.SetCursorMode(ebiten.CursorModeVisible)
-		} else if x >= -2 && y >= -2 && x < world.World.ScreenW+2 && y < world.World.ScreenH+2 {
-			// Pan via screen edge.
-			if x <= scrollEdgeSize {
-				world.World.CamX -= camSpeed
-			} else if x >= world.World.ScreenW-scrollEdgeSize-1 {
-				world.World.CamX += camSpeed
-			}
-			if y <= scrollEdgeSize {
-				world.World.CamY -= camSpeed
-			} else if y >= world.World.ScreenH-scrollEdgeSize-1 {
-				world.World.CamY += camSpeed
-			}
+		}
+
+		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) {
+			vX, vY := world.World.ScreenW/2-x, world.World.ScreenH/2-y
+			dx, dy := float64(vX)/world.World.CamScale, float64(vY)/world.World.CamScale
+			world.World.CamX, world.World.CamY = world.World.CamX-dx, world.World.CamY-dy
 		}
 	}
 	// Clamp viewport.
@@ -309,7 +309,9 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 		return nil
 	}
 
-	world.HandleRCIWindowClick(x, y)
+	if world.HandleRCIWindow(x, y) {
+		return nil
+	}
 
 	if x >= world.World.ScreenW-helpW && y >= world.World.ScreenH-helpH {
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
@@ -408,10 +410,10 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 						// TODO draw hover sprites
 						// TODO move below into shared func
 						world.World.Level.ClearHoverSprites()
-						world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))
+						world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY), false)
 						var cost int
 						for _, tile := range tiles {
-							world.BuildStructure(world.World.HoverStructure, true, tile[0], tile[1])
+							world.BuildStructure(world.World.HoverStructure, true, tile[0], tile[1], false)
 							cost += world.StructureCosts[world.World.HoverStructure]
 						}
 						world.World.HoverValid = cost <= world.World.Funds
@@ -441,13 +443,13 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 					}
 
 					if world.World.HoverStructure > 0 {
-						world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))
+						world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY), false)
 					}
 				}
 			} else {
 				world.World.Level.ClearHoverSprites()
 
-				world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY))
+				world.BuildStructure(world.World.HoverStructure, true, int(tileX), int(tileY), false)
 			}
 			world.World.HoverX, world.World.HoverY = int(tileX), int(tileY)
 		}

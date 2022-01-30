@@ -37,7 +37,7 @@ func (s *TaxSystem) Update(_ *gohan.Context) error {
 		return nil
 	}
 
-	taxCollectionAmount := 777.77
+	taxCollectionAmount := 27.77
 	for _, zone := range world.World.Zones {
 		if zone.Population == 0 {
 			continue
@@ -50,7 +50,7 @@ func (s *TaxSystem) Update(_ *gohan.Context) error {
 			taxRate = world.World.TaxI
 		}
 
-		world.World.Funds += int(taxCollectionAmount * taxRate)
+		world.World.Funds += int(taxCollectionAmount * taxRate * float64(zone.Population))
 	}
 	return nil
 }

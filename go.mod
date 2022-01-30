@@ -17,8 +17,10 @@ require (
 	github.com/jezek/xgb v0.0.0-20210312150743-0e0f116e1240 // indirect
 	github.com/jfreymuth/oggvorbis v1.0.3 // indirect
 	github.com/jfreymuth/vorbis v1.0.2 // indirect
-	golang.org/x/exp v0.0.0-20220121174013-7b334a16533f // indirect
+	golang.org/x/exp v0.0.0-20220128181451-c853b6ddb95e // indirect
 	golang.org/x/mobile v0.0.0-20220112015953-858099ff7816 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
+	golang.org/x/sys v0.0.0-20220128215802-99c3d69c2c27 // indirect
 )
+
+replace github.com/lafriks/go-tiled => github.com/tslocum/go-tiled v0.7.1-0.20220129040705-2d2dec486bd9

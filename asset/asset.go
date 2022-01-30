@@ -28,14 +28,21 @@ var (
 )
 
 var (
-	SoundMusic    *audio.Player
+	SoundMusic1 *audio.Player
+	SoundMusic2 *audio.Player
+	SoundMusic3 *audio.Player
+
 	SoundSelect   *audio.Player
 	SoundBulldoze *audio.Player
-	SoundPop1     *audio.Player
-	SoundPop2     *audio.Player
-	SoundPop3     *audio.Player
-	SoundPop4     *audio.Player
-	SoundPop5     *audio.Player
+
+	SoundPop1 *audio.Player
+	SoundPop2 *audio.Player
+	SoundPop3 *audio.Player
+	SoundPop4 *audio.Player
+	SoundPop5 *audio.Player
+
+	SoundExplosion1 *audio.Player
+	SoundExplosion2 *audio.Player
 )
 
 func init() {
@@ -44,8 +51,14 @@ func init() {
 }
 
 func LoadSounds(ctx *audio.Context) {
-	SoundMusic = LoadOGG(ctx, "sound/we_will_build_it.ogg", true)
-	SoundMusic.SetVolume(0.6)
+	SoundMusic1 = LoadOGG(ctx, "sound/we_will_build_it.ogg", false)
+	SoundMusic1.SetVolume(0.6)
+
+	SoundMusic2 = LoadOGG(ctx, "sound/please_recycle.ogg", false)
+	SoundMusic2.SetVolume(0.1)
+
+	SoundMusic3 = LoadOGG(ctx, "sound/the_world_is_a_landfill_and_its_your_fault_you_fucking_son_of_a_bitch_god_damn.ogg", false)
+	SoundMusic3.SetVolume(0.4)
 
 	SoundSelect = LoadWAV(ctx, "sound/select/select.wav")
 	SoundSelect.SetVolume(0.6)
@@ -64,6 +77,12 @@ func LoadSounds(ctx *audio.Context) {
 	SoundPop3.SetVolume(popVolume)
 	SoundPop4.SetVolume(popVolume)
 	SoundPop5.SetVolume(popVolume)
+
+	const explosionVolume = 0.1
+	SoundExplosion1 = LoadOGG(ctx, "sound/explosion/explosion1.ogg", false)
+	SoundExplosion2 = LoadOGG(ctx, "sound/explosion/explosion2.ogg", false)
+	SoundExplosion1.SetVolume(explosionVolume)
+	SoundExplosion2.SetVolume(explosionVolume)
 }
 
 func LoadImage(p string) *ebiten.Image {

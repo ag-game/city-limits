@@ -1,0 +1,13 @@
+v1.1.0
+- Fixed bulldozer
+- Fixed tax system (now collected per citizen)
+- Fixed building unintentionally when adjusting tax rates
+- Fixed game crash on Windows
+- Added city population indicator
+- Added center camera via right click
+- Added new music to soundtrack
+- Removed screen edge scrolling
+- Removed middle mouse scrolling
+
+v1.0.0
+- Initial release

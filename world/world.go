@@ -211,6 +211,8 @@ type GameWorld struct {
 	TaxC float64
 	TaxI float64
 
+	playingSong int
+
 	resetTipShown bool
 }
 
@@ -237,6 +239,7 @@ func Reset() {
 	World.CamX = float64((32 * TileSize) - rand.Intn(64*TileSize))
 	World.CamY = float64((32 * TileSize) + rand.Intn(32*TileSize))
 
+	World.playingSong = rand.Intn(3)
 }
 
 func LoadMap(structureType int) (*tiled.Map, error) {
@@ -246,7 +249,7 @@ func LoadMap(structureType int) (*tiled.Map, error) {
 	}
 
 	// Parse .tmx file.
-	m, err := tiled.LoadFile(filepath.FromSlash(filePath), tiled.WithFileSystem(asset.FS))
+	m, err := tiled.LoadFile(filePath, tiled.WithFileSystem(asset.FS))
 	if err != nil {
 		log.Fatalf("error parsing world: %+v", err)
 	}
@@ -309,7 +312,7 @@ func LoadTileset() error {
 
 	tileset := m.Tilesets[0]
 	imgPath := filepath.Join("./image/tileset/", tileset.Image.Source)
-	f, err := asset.FS.Open(filepath.FromSlash(imgPath))
+	f, err := asset.FS.Open(filepath.ToSlash(imgPath))
 	if err != nil {
 		panic(err)
 	}
@@ -346,7 +349,15 @@ func ShowBuildCost(structureType int, cost int) {
 	}
 }
 
-func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Structure, error) {
+func bulldozeArea(x int, y int, size int) {
+	for dx := 0; dx < size; dx++ {
+		for dy := 0; dy < size; dy++ {
+			BuildStructure(StructureBulldozer, false, x-dx, y-dy, true)
+		}
+	}
+}
+
+func BuildStructure(structureType int, hover bool, placeX int, placeY int, internal bool) (*Structure, error) {
 	m, err := LoadMap(structureType)
 	if err != nil {
 		return nil, err
@@ -406,6 +417,47 @@ func BuildStructure(structureType int, hover bool, placeX int, placeY int) (*Str
 		}
 		if !bulldozed {
 			return nil, ErrNothingToBulldoze
+		}
+		if !internal {
+			var bulldozeStructure bool
+			checkSpaces := 2
+		REMOVEZONES:
+			for i, zone := range World.Zones {
+				for dx := 0; dx < checkSpaces; dx++ {
+					for dy := 0; dy < checkSpaces; dy++ {
+						if placeX == zone.X-dx && placeY == zone.Y-dy {
+							World.Zones = append(World.Zones[:i], World.Zones[i+1:]...)
+							bulldozeArea(zone.X, zone.Y, 2)
+							bulldozeStructure = true
+							break REMOVEZONES
+						}
+					}
+				}
+			}
+			checkSpaces = 5
+		REMOVEPOWER:
+			for i, plant := range World.PowerPlants {
+				for dx := 0; dx < checkSpaces; dx++ {
+					for dy := 0; dy < checkSpaces; dy++ {
+						if placeX == plant.X-dx && placeY == plant.Y-dy {
+							World.PowerPlants = append(World.PowerPlants[:i], World.PowerPlants[i+1:]...)
+							bulldozeArea(plant.X, plant.Y, 5)
+							bulldozeStructure = true
+							World.PowerUpdated = true
+							break REMOVEPOWER
+						}
+					}
+				}
+			}
+			if bulldozeStructure {
+				sounds := []*audio.Player{
+					asset.SoundExplosion1,
+					asset.SoundExplosion2,
+				}
+				sound := sounds[rand.Intn(len(sounds))]
+				sound.Rewind()
+				sound.Play()
+			}
 		}
 		World.Power.SetTile(placeX, placeY, false)
 		return structure, nil
@@ -558,10 +610,6 @@ func StartGame() {
 	}
 	World.GameStarted = true
 
-	if !World.MuteMusic {
-		asset.SoundMusic.Play()
-	}
-
 	// Show initial help page.
 	SetHelpPage(0)
 }
@@ -627,18 +675,18 @@ func AltButtonAt(x, y int) int {
 	return -1
 }
 
-func HandleRCIWindowClick(x, y int) {
+func HandleRCIWindow(x, y int) bool {
 	if !World.ShowRCIWindow {
-		return
-	}
-
-	if !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-		return
+		return false
 	}
 
 	point := image.Point{x, y}
 	if !point.In(World.RCIWindowRect) {
-		return
+		return false
+	}
+
+	if !ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		return true
 	}
 
 	var updated bool
@@ -668,7 +716,7 @@ func HandleRCIWindowClick(x, y int) {
 		updated = true
 	}
 	if !updated {
-		return
+		return true
 	}
 
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || World.Ticks%16 == 0 {
@@ -683,6 +731,7 @@ func HandleRCIWindowClick(x, y int) {
 		sound.Rewind()
 		sound.Play()
 	}
+	return true
 }
 
 func SetHoverStructure(structureType int) {
@@ -865,4 +914,40 @@ func IsPowerPlant(structureType int) bool {
 
 func IsZone(structureType int) bool {
 	return structureType == StructureResidentialZone || structureType == StructureCommercialZone || structureType == StructureIndustrialZone
+}
+
+func PlayNextSong() {
+	const numSongs = 3
+
+	asset.SoundMusic1.Pause()
+	asset.SoundMusic2.Pause()
+	asset.SoundMusic3.Pause()
+
+	World.playingSong++
+	if World.playingSong == numSongs {
+		World.playingSong = 0
+	}
+
+	switch World.playingSong {
+	case 0:
+		asset.SoundMusic1.Rewind()
+		asset.SoundMusic1.Play()
+	case 1:
+		asset.SoundMusic2.Rewind()
+		asset.SoundMusic2.Play()
+	case 2:
+		asset.SoundMusic3.Rewind()
+		asset.SoundMusic3.Play()
+	}
+}
+
+func ResumeSong() {
+	switch World.playingSong {
+	case 0:
+		asset.SoundMusic1.Play()
+	case 1:
+		asset.SoundMusic2.Play()
+	case 2:
+		asset.SoundMusic3.Play()
+	}
 }

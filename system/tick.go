@@ -1,6 +1,7 @@
 package system
 
 import (
+	"code.rocketnine.space/tslocum/citylimits/asset"
 	"code.rocketnine.space/tslocum/citylimits/component"
 	"code.rocketnine.space/tslocum/citylimits/world"
 	"code.rocketnine.space/tslocum/gohan"
@@ -33,14 +34,18 @@ func (s *TickSystem) Update(_ *gohan.Context) error {
 		return nil
 	}
 
-	world.World.Ticks++
 	// Update date display.
 	if world.World.Ticks%world.MonthTicks == 0 {
 		world.World.HUDUpdated = true
 	}
 	if world.World.Ticks%144 == 0 {
 		world.TickMessages()
+
+		if !world.World.MuteMusic && !asset.SoundMusic1.IsPlaying() && !asset.SoundMusic2.IsPlaying() && !asset.SoundMusic3.IsPlaying() {
+			world.PlayNextSong()
+		}
 	}
+	world.World.Ticks++
 	return nil
 }
 

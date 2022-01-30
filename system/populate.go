@@ -130,10 +130,10 @@ func (s *PopulateSystem) Update(_ *gohan.Context) error {
 		// TODO only bulldoze when changed
 		for offsetX := 0; offsetX < 2; offsetX++ {
 			for offsetY := 0; offsetY < 2; offsetY++ {
-				world.BuildStructure(world.StructureBulldozer, false, zone.X-offsetX, zone.Y-offsetY)
+				world.BuildStructure(world.StructureBulldozer, false, zone.X-offsetX, zone.Y-offsetY, true)
 			}
 		}
-		world.BuildStructure(newType, false, zone.X, zone.Y)
+		world.BuildStructure(newType, false, zone.X, zone.Y, true)
 	}
 
 	// TODO populate and de-populate zones by target population

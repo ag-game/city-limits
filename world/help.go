@@ -9,10 +9,10 @@ Will you lead the clean energy front,
 or will you put profits before people?
 `, `
 Moving Via Mouse                 (2/10)
-To move around, place your cursor at
-the edge of the screen, or press and
-hold your middle mouse button while
-moving your cursor.
+To move around, press and hold your
+middle mouse button while moving your
+mouse, or press right click to center
+the camera on an area immediately.
 `, `
 Moving Via Keyboard              (3/10)
 You can also use your keyboard to move
