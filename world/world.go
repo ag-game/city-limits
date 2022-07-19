@@ -22,7 +22,6 @@ import (
 
 	"code.rocketnine.space/tslocum/citylimits/asset"
 	"code.rocketnine.space/tslocum/citylimits/component"
-	. "code.rocketnine.space/tslocum/citylimits/ecs"
 	"code.rocketnine.space/tslocum/gohan"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/lafriks/go-tiled"
@@ -219,8 +218,8 @@ type GameWorld struct {
 var ErrNothingToBulldoze = errors.New("nothing to bulldoze")
 
 func Reset() {
-	for _, e := range ECS.Entities() {
-		ECS.RemoveEntity(e)
+	for _, e := range gohan.AllEntities() {
+		e.Remove()
 	}
 	World.Player = 0
 
@@ -464,19 +463,18 @@ func BuildStructure(structureType int, hover bool, placeX int, placeY int, inter
 	}
 
 	createTileEntity := func(t *tiled.LayerTile, x float64, y float64) gohan.Entity {
-		mapTile := ECS.NewEntity()
-		ECS.AddComponent(mapTile, &component.PositionComponent{
+		mapTile := gohan.NewEntity()
+		mapTile.AddComponent(&component.Position{
 			X: x,
 			Y: y,
 		})
 
-		sprite := &component.SpriteComponent{
+		mapTile.AddComponent(&component.Sprite{
 			Image:          World.TileImages[t.Tileset.FirstGID+t.ID],
 			HorizontalFlip: t.HorizontalFlip,
 			VerticalFlip:   t.VerticalFlip,
 			DiagonalFlip:   t.DiagonalFlip,
-		}
-		ECS.AddComponent(mapTile, sprite)
+		})
 
 		return mapTile
 	}

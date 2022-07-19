@@ -9,6 +9,9 @@ import (
 )
 
 type TickSystem struct {
+	Position *component.Position
+	Velocity *component.Velocity
+	Weapon   *component.Weapon
 }
 
 func NewTickSystem() *TickSystem {
@@ -17,19 +20,7 @@ func NewTickSystem() *TickSystem {
 	return s
 }
 
-func (s *TickSystem) Needs() []gohan.ComponentID {
-	return []gohan.ComponentID{
-		component.PositionComponentID,
-		component.VelocityComponentID,
-		component.WeaponComponentID,
-	}
-}
-
-func (s *TickSystem) Uses() []gohan.ComponentID {
-	return nil
-}
-
-func (s *TickSystem) Update(_ *gohan.Context) error {
+func (s *TickSystem) Update(_ gohan.Entity) error {
 	if world.World.Paused {
 		return nil
 	}
@@ -49,6 +40,6 @@ func (s *TickSystem) Update(_ *gohan.Context) error {
 	return nil
 }
 
-func (s *TickSystem) Draw(ctx *gohan.Context, screen *ebiten.Image) error {
-	return gohan.ErrSystemWithoutDraw
+func (s *TickSystem) Draw(e gohan.Entity, screen *ebiten.Image) error {
+	return gohan.ErrUnregister
 }

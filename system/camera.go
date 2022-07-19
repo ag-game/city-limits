@@ -10,6 +10,8 @@ import (
 const CameraMoveSpeed = 0.132
 
 type CameraSystem struct {
+	Position *component.Position
+	Weapon   *component.Weapon
 }
 
 func NewCameraSystem() *CameraSystem {
@@ -17,18 +19,8 @@ func NewCameraSystem() *CameraSystem {
 
 	return s
 }
-func (_ *CameraSystem) Needs() []gohan.ComponentID {
-	return []gohan.ComponentID{
-		component.WeaponComponentID,
-		component.PositionComponentID,
-	}
-}
 
-func (_ *CameraSystem) Uses() []gohan.ComponentID {
-	return nil
-}
-
-func (s *CameraSystem) Update(ctx *gohan.Context) error {
+func (s *CameraSystem) Update(e gohan.Entity) error {
 	if !world.World.GameStarted || world.World.GameOver {
 		return nil
 	}
@@ -38,6 +30,6 @@ func (s *CameraSystem) Update(ctx *gohan.Context) error {
 	return nil
 }
 
-func (_ *CameraSystem) Draw(_ *gohan.Context, screen *ebiten.Image) error {
-	return gohan.ErrSystemWithoutDraw
+func (_ *CameraSystem) Draw(_ gohan.Entity, screen *ebiten.Image) error {
+	return gohan.ErrUnregister
 }

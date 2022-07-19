@@ -7,7 +7,6 @@ import (
 	"golang.org/x/image/colornames"
 
 	"code.rocketnine.space/tslocum/citylimits/component"
-	. "code.rocketnine.space/tslocum/citylimits/ecs"
 	"code.rocketnine.space/tslocum/citylimits/world"
 	"code.rocketnine.space/tslocum/gohan"
 	"github.com/hajimehoshi/ebiten/v2"
@@ -25,8 +24,8 @@ const (
 )
 
 type RenderSystem struct {
-	ScreenW int
-	ScreenH int
+	Position *component.Position
+	Sprite   *component.Sprite
 
 	img *ebiten.Image
 	op  *ebiten.DrawImageOptions
@@ -38,30 +37,17 @@ type RenderSystem struct {
 
 func NewRenderSystem() *RenderSystem {
 	s := &RenderSystem{
-		renderer: ECS.NewEntity(),
+		renderer: gohan.NewEntity(),
 		img:      ebiten.NewImage(320, 100),
 		op:       &ebiten.DrawImageOptions{},
 		camScale: 1,
-		ScreenW:  640,
-		ScreenH:  480,
 	}
 
 	return s
 }
 
-func (s *RenderSystem) Needs() []gohan.ComponentID {
-	return []gohan.ComponentID{
-		component.PositionComponentID,
-		component.SpriteComponentID,
-	}
-}
-
-func (s *RenderSystem) Uses() []gohan.ComponentID {
-	return nil
-}
-
-func (s *RenderSystem) Update(_ *gohan.Context) error {
-	return gohan.ErrSystemWithoutUpdate
+func (s *RenderSystem) Update(_ gohan.Entity) error {
+	return gohan.ErrUnregister
 }
 
 func (s *RenderSystem) levelCoordinatesToScreen(x, y float64) (float64, float64) {
@@ -131,17 +117,17 @@ func (s *RenderSystem) renderSprite(x float64, y float64, offsetx float64, offse
 	return 1
 }
 
-func (s *RenderSystem) Draw(ctx *gohan.Context, screen *ebiten.Image) error {
+func (s *RenderSystem) Draw(e gohan.Entity, screen *ebiten.Image) error {
 	if !world.World.GameStarted {
 		// TODO
-		if ctx.Entity == world.World.Player {
+		if e == world.World.Player {
 			screen.Fill(colornames.Purple)
 		}
 		return nil
 	}
 
-	position := component.Position(ctx)
-	sprite := component.Sprite(ctx)
+	position := s.Position
+	sprite := s.Sprite
 
 	if sprite.NumFrames > 0 && time.Since(sprite.LastFrame) > sprite.FrameTime {
 		sprite.Frame++

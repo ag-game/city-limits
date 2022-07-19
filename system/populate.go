@@ -8,6 +8,9 @@ import (
 )
 
 type PopulateSystem struct {
+	Position *component.Position
+	Velocity *component.Velocity
+	Weapon   *component.Weapon
 }
 
 func NewPopulateSystem() *PopulateSystem {
@@ -16,19 +19,7 @@ func NewPopulateSystem() *PopulateSystem {
 	return s
 }
 
-func (s *PopulateSystem) Needs() []gohan.ComponentID {
-	return []gohan.ComponentID{
-		component.PositionComponentID,
-		component.VelocityComponentID,
-		component.WeaponComponentID,
-	}
-}
-
-func (s *PopulateSystem) Uses() []gohan.ComponentID {
-	return nil
-}
-
-func (s *PopulateSystem) Update(_ *gohan.Context) error {
+func (s *PopulateSystem) Update(_ gohan.Entity) error {
 	if world.World.Paused {
 		return nil
 	}
@@ -141,6 +132,6 @@ func (s *PopulateSystem) Update(_ *gohan.Context) error {
 	return nil
 }
 
-func (s *PopulateSystem) Draw(ctx *gohan.Context, screen *ebiten.Image) error {
-	return gohan.ErrSystemWithoutDraw
+func (s *PopulateSystem) Draw(_ gohan.Entity, screen *ebiten.Image) error {
+	return gohan.ErrUnregister
 }

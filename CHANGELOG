@@ -1,3 +1,6 @@
+v1.1.1
+- Fixed game crash when playing via browser
+
 v1.1.0
 - Fixed bulldozer
 - Fixed tax system (now collected per citizen)

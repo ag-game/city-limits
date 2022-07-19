@@ -13,6 +13,8 @@ import (
 )
 
 type profileSystem struct {
+	Weapon *component.Weapon
+
 	player     gohan.Entity
 	cpuProfile *os.File
 }
@@ -23,17 +25,7 @@ func NewProfileSystem(player gohan.Entity) *profileSystem {
 	}
 }
 
-func (s *profileSystem) Needs() []gohan.ComponentID {
-	return []gohan.ComponentID{
-		component.WeaponComponentID,
-	}
-}
-
-func (s *profileSystem) Uses() []gohan.ComponentID {
-	return nil
-}
-
-func (s *profileSystem) Update(_ *gohan.Context) error {
+func (s *profileSystem) Update(_ gohan.Entity) error {
 	if ebiten.IsKeyPressed(ebiten.KeyControl) && inpututil.IsKeyJustPressed(ebiten.KeyP) {
 		if s.cpuProfile == nil {
 			runtime.SetCPUProfileRate(1000)
@@ -63,6 +55,6 @@ func (s *profileSystem) Update(_ *gohan.Context) error {
 	return nil
 }
 
-func (s *profileSystem) Draw(_ *gohan.Context, _ *ebiten.Image) error {
-	return gohan.ErrSystemWithoutDraw
+func (s *profileSystem) Draw(_ gohan.Entity, _ *ebiten.Image) error {
+	return gohan.ErrUnregister
 }

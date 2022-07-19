@@ -6,10 +6,11 @@ import (
 	"os"
 	"sync"
 
+	"code.rocketnine.space/tslocum/gohan"
+
 	"code.rocketnine.space/tslocum/citylimits/entity"
 
 	"code.rocketnine.space/tslocum/citylimits/asset"
-	. "code.rocketnine.space/tslocum/citylimits/ecs"
 	"code.rocketnine.space/tslocum/citylimits/system"
 	"code.rocketnine.space/tslocum/citylimits/world"
 	"github.com/hajimehoshi/ebiten/v2"
@@ -54,7 +55,7 @@ func NewGame() (*game, error) {
 	}
 
 	const numEntities = 30000
-	ECS.Preallocate(numEntities)
+	gohan.Preallocate(numEntities)
 
 	return g, nil
 }
@@ -223,7 +224,7 @@ func (g *game) Update() error {
 		world.World.GameOver = false
 	}
 
-	err := ECS.Update()
+	err := gohan.Update()
 	if err != nil {
 		return err
 	}
@@ -334,35 +335,31 @@ func (g *game) Draw(screen *ebiten.Image) {
 	}
 	world.World.EnvironmentSprites = drawn
 
-	err := ECS.Draw(screen)
+	err := gohan.Draw(screen)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func (g *game) addSystems() {
-	ecs := ECS
-
 	// Simulation systems.
-	ecs.AddSystem(system.NewTickSystem())
-	ecs.AddSystem(system.NewPowerScanSystem())
-	ecs.AddSystem(system.NewPopulateSystem())
-	ecs.AddSystem(system.NewTaxSystem())
+	gohan.AddSystem(system.NewTickSystem())
+	gohan.AddSystem(system.NewPowerScanSystem())
+	gohan.AddSystem(system.NewPopulateSystem())
+	gohan.AddSystem(system.NewTaxSystem())
 
 	// Input systems.
 	g.movementSystem = system.NewMovementSystem()
-	ecs.AddSystem(system.NewPlayerMoveSystem(world.World.Player, g.movementSystem))
-	ecs.AddSystem(system.NewplayerFireSystem())
-	ecs.AddSystem(g.movementSystem)
+	gohan.AddSystem(system.NewPlayerMoveSystem(world.World.Player, g.movementSystem))
+	gohan.AddSystem(g.movementSystem)
 
 	// Render systems.
-	ecs.AddSystem(system.NewCreepSystem())
-	ecs.AddSystem(system.NewCameraSystem())
+	gohan.AddSystem(system.NewCameraSystem())
 	g.renderSystem = system.NewRenderSystem()
-	ecs.AddSystem(g.renderSystem)
-	ecs.AddSystem(system.NewRenderHudSystem())
-	ecs.AddSystem(system.NewRenderDebugTextSystem(world.World.Player))
-	ecs.AddSystem(system.NewProfileSystem(world.World.Player))
+	gohan.AddSystem(g.renderSystem)
+	gohan.AddSystem(system.NewRenderHudSystem())
+	gohan.AddSystem(system.NewRenderDebugTextSystem(world.World.Player))
+	gohan.AddSystem(system.NewProfileSystem(world.World.Player))
 }
 
 func (g *game) loadAssets() error {

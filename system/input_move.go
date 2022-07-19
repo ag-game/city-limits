@@ -18,6 +18,10 @@ import (
 )
 
 type playerMoveSystem struct {
+	Position *component.Position
+	Velocity *component.Velocity
+	Weapon   *component.Weapon
+
 	player       gohan.Entity
 	movement     *MovementSystem
 	lastWalkDirL bool
@@ -37,19 +41,6 @@ func NewPlayerMoveSystem(player gohan.Entity, m *MovementSystem) *playerMoveSyst
 		scrollDragY: -1,
 	}
 }
-
-func (_ *playerMoveSystem) Needs() []gohan.ComponentID {
-	return []gohan.ComponentID{
-		component.PositionComponentID,
-		component.VelocityComponentID,
-		component.WeaponComponentID,
-	}
-}
-
-func (_ *playerMoveSystem) Uses() []gohan.ComponentID {
-	return nil
-}
-
 func (s *playerMoveSystem) buildStructure(structureType int, tileX int, tileY int, playSound bool) (*world.Structure, error) {
 	cost := world.StructureCosts[structureType]
 	if world.World.Funds < cost {
@@ -114,7 +105,7 @@ func (s *playerMoveSystem) buildStructure(structureType int, tileX int, tileY in
 	return structure, err
 }
 
-func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
+func (s *playerMoveSystem) Update(e gohan.Entity) error {
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) && !world.World.DisableEsc {
 		os.Exit(0)
 		return nil
@@ -458,8 +449,8 @@ func (s *playerMoveSystem) Update(ctx *gohan.Context) error {
 	return nil
 }
 
-func (s *playerMoveSystem) Draw(_ *gohan.Context, _ *ebiten.Image) error {
-	return gohan.ErrSystemWithoutDraw
+func (s *playerMoveSystem) Draw(_ gohan.Entity, _ *ebiten.Image) error {
+	return gohan.ErrUnregister
 }
 
 func deltaXY(x1, y1, x2, y2 float64) (dx float64, dy float64) {

@@ -10,6 +10,9 @@ import (
 )
 
 type PowerScanSystem struct {
+	Position *component.Position
+	Velocity *component.Velocity
+	Weapon   *component.Weapon
 }
 
 func NewPowerScanSystem() *PowerScanSystem {
@@ -18,19 +21,7 @@ func NewPowerScanSystem() *PowerScanSystem {
 	return s
 }
 
-func (s *PowerScanSystem) Needs() []gohan.ComponentID {
-	return []gohan.ComponentID{
-		component.PositionComponentID,
-		component.VelocityComponentID,
-		component.WeaponComponentID,
-	}
-}
-
-func (s *PowerScanSystem) Uses() []gohan.ComponentID {
-	return nil
-}
-
-func (s *PowerScanSystem) Update(_ *gohan.Context) error {
+func (s *PowerScanSystem) Update(_ gohan.Entity) error {
 	if world.World.Paused {
 		return nil
 	}
@@ -164,6 +155,6 @@ func (s *PowerScanSystem) Update(_ *gohan.Context) error {
 	return nil
 }
 
-func (s *PowerScanSystem) Draw(ctx *gohan.Context, screen *ebiten.Image) error {
-	return gohan.ErrSystemWithoutDraw
+func (s *PowerScanSystem) Draw(e gohan.Entity, screen *ebiten.Image) error {
+	return gohan.ErrUnregister
 }

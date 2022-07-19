@@ -8,6 +8,9 @@ import (
 )
 
 type TaxSystem struct {
+	Position *component.Position
+	Velocity *component.Velocity
+	Weapon   *component.Weapon
 }
 
 func NewTaxSystem() *TaxSystem {
@@ -16,19 +19,7 @@ func NewTaxSystem() *TaxSystem {
 	return s
 }
 
-func (s *TaxSystem) Needs() []gohan.ComponentID {
-	return []gohan.ComponentID{
-		component.PositionComponentID,
-		component.VelocityComponentID,
-		component.WeaponComponentID,
-	}
-}
-
-func (s *TaxSystem) Uses() []gohan.ComponentID {
-	return nil
-}
-
-func (s *TaxSystem) Update(_ *gohan.Context) error {
+func (s *TaxSystem) Update(_ gohan.Entity) error {
 	if world.World.Paused {
 		return nil
 	}
@@ -55,6 +46,6 @@ func (s *TaxSystem) Update(_ *gohan.Context) error {
 	return nil
 }
 
-func (s *TaxSystem) Draw(_ *gohan.Context, _ *ebiten.Image) error {
-	return gohan.ErrSystemWithoutDraw
+func (s *TaxSystem) Draw(_ gohan.Entity, _ *ebiten.Image) error {
+	return gohan.ErrUnregister
 }

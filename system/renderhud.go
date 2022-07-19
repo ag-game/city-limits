@@ -22,6 +22,10 @@ const (
 )
 
 type RenderHudSystem struct {
+	Position *component.Position
+	Velocity *component.Velocity
+	Weapon   *component.Weapon
+
 	op           *ebiten.DrawImageOptions
 	hudImg       *ebiten.Image
 	tmpImg       *ebiten.Image
@@ -45,23 +49,11 @@ func NewRenderHudSystem() *RenderHudSystem {
 	return s
 }
 
-func (s *RenderHudSystem) Needs() []gohan.ComponentID {
-	return []gohan.ComponentID{
-		component.PositionComponentID,
-		component.VelocityComponentID,
-		component.WeaponComponentID,
-	}
-}
-
-func (s *RenderHudSystem) Uses() []gohan.ComponentID {
+func (s *RenderHudSystem) Update(_ gohan.Entity) error {
 	return nil
 }
 
-func (s *RenderHudSystem) Update(_ *gohan.Context) error {
-	return nil
-}
-
-func (s *RenderHudSystem) Draw(_ *gohan.Context, screen *ebiten.Image) error {
+func (s *RenderHudSystem) Draw(_ gohan.Entity, screen *ebiten.Image) error {
 	// Draw HUD.
 	if world.World.HUDUpdated {
 		s.hudImg.Clear()
